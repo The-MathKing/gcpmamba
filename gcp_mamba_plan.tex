@@ -1,0 +1,175 @@
+\documentclass{bioinfo}
+\copyrightyear{2026} \pubyear{2026}
+
+\access{Advance Access Publication Date: Day Month Year}
+\appnotes{Manuscript Category}
+
+\begin{document}
+\firstpage{1}
+
+\subtitle{Subject Section}
+
+\title[GCP-Mamba]{GCP-Mamba (Graph-Conditioned Perturbation Mamba): End-to-end development, verification, and submission pipeline}
+\author[Author Name \textit{et~al.}]{Author Name\,$^{\text{\sfb 1,}*}$}
+\address{$^{\text{\sfb 1}}$Department, Institution, City, Post Code, Country}
+
+\corresp{$^\ast$To whom correspondence should be addressed.}
+
+\history{Received on XXXXX; revised on XXXXX; accepted on XXXXX}
+
+\editor{Associate Editor: XXXXXXX}
+
+\abstract{
+\textbf{Motivation:} This implementation plan details the end-to-end development, verification, and submission pipeline for GCP-Mamba (Graph-Conditioned Perturbation Mamba). It is structured to satisfy the zero-hallucination, rigorous benchmark validation, and reproducibility protocols required for an Original Paper submission to Oxford's \textit{Bioinformatics}.\\
+\textbf{Results:} We present a comprehensive phased pipeline covering environment architecture, data acquisition, algorithmic engineering of bidirectional Mamba backbones with graph conditioning, rigorous benchmarking against state-of-the-art models (GEARS, scGPT, AttentionPert), and biological interpretation for synthetic knockout experiments.\\
+\textbf{Availability:} \href{https://github.com/The-MathKing/gcpmamba}{https://github.com/The-MathKing/gcpmamba}\\
+\textbf{Contact:} \href{mailto:author@example.com}{author@example.com}
+}
+
+\maketitle
+
+\section{Introduction}
+The development, verification, and submission pipeline for \textbf{GCP-Mamba (Graph-Conditioned Perturbation Mamba)} is structured to satisfy the zero-hallucination, rigorous benchmark validation, and reproducibility protocols required for an Original Paper submission to Oxford's \textit{Bioinformatics}. This project focuses on the combinatorial problem of gene perturbations and addresses the computational scaling limits of Transformers by utilizing a bidirectional Mamba backbone, conditioning its internal parameters directly on graph structures.
+
+\section{Phase 1: Environment Architecture \& Dependency Management}
+\textbf{Timeline:} Days 1--3 \\
+\textbf{Objective:} Establish a deterministic, reproducible execution environment to eliminate hardware-level variance.
+
+\begin{itemize}
+    \item \textbf{Container Isolation:} Initialize a Docker container using a base image optimized for deep learning stack stability (e.g., \texttt{nvidia/cuda:12.4.1-devel-ubuntu22.04}).
+    \item \textbf{Compiler Verification:} Ensure \texttt{nvcc} is exposed to the environment path to allow runtime compilation of Mamba's custom Triton/CUDA kernels.
+    \item \textbf{Dependency Sequencing:} Install core packages strictly in the following sequence to prevent library symbol conflicts:
+    \begin{itemize}
+        \item PyTorch (Stable release compatible with CUDA 12.x)
+        \item PyTorch Geometric (\texttt{torch-geometric}) for graph processing layers.
+        \item \texttt{causal-conv1d} (Core Mamba sequence convolution dependency).
+        \item \texttt{mamba-ssm} (Standard selective state-space implementation layers).
+    \end{itemize}
+\end{itemize}
+
+\section{Phase 2: Data Acquisition \& Preprocessing Pipeline}
+\textbf{Timeline:} Days 4--8 \\
+\textbf{Objective:} Extract, clean, and format the golden standard benchmarks without technical or biological data leakage.
+
+\subsection{Source Material Procurement}
+\begin{itemize}
+    \item \textbf{Perturbation Data:} Download the Norman et al. (2019) K562 single-cell dataset directly via the programmatic API provided in the \texttt{gears} library package or the Hugging Face hub (\texttt{matthewshu/gears-norman}).
+    \item \textbf{Knowledge Graph Topology:} Extract the Human Gene Ontology (GO) graph structure using the biological network generation scripts present in the \texttt{GEARS} framework.
+\end{itemize}
+
+\subsection{Standardization \& Multi-Split Engineering}
+\begin{itemize}
+    \item Filter raw transcript count matrices down to the top \textbf{5,045 highly variable genes} defined in the standard benchmarking protocol.
+    \item Normalize expression data via total count scaling per cell followed by a $\ln(\text{counts per million} + 1)$ transform.
+    \item Enforce strict, non-overlapping dataset partitions across three experimental conditions to validate model generalization capacity:
+\end{itemize}
+
+\begin{table}[!t]
+\caption{Generalization Tier \& Target Test Set Criteria}
+\begin{tabular}{lp{6cm}}
+\toprule
+\textbf{Tier} & \textbf{Criteria} \\
+\midrule
+\textbf{Seen 2/2} & Both perturbed genes were observed independently as single-gene knockouts during model training. \\
+\textbf{Seen 1/2} & Only one of the two perturbed genes was observed during model training. \\
+\textbf{Seen 0/2} & Completely uncharacterized combinations; neither gene was seen in any training perturbation context. \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Phase 3: Algorithmic Engineering \& Core Architecture Development}
+\textbf{Timeline:} Days 9--17 \\
+\textbf{Objective:} Replace standard multi-layer decoders with a bidirectional Mamba backbone, conditioning its internal parameters directly on graph structures.
+
+\subsection{Structural Modality Construction}
+\begin{itemize}
+    \item Map the baseline single-cell expression vector to a continuous latent space using an embedding layer.
+    \item Compute the full pair-wise shortest-path distance matrix $\mathbf{D}$ for all 5,045 genes within the Gene Ontology network topology.
+\end{itemize}
+
+\subsection{Graph Conditioning of SSM Equations}
+Modify the discretization layer inside the Mamba framework. Instead of treating the step size parameter $\Delta$ as a purely data-driven sequence variable, scale the parameters based on the network proximity of genes:
+
+\begin{equation}
+\Delta_{\text{graph}} = \Delta \odot \sigma(\mathbf{W}_g \mathbf{D})
+\end{equation}
+
+\begin{equation}
+\mathbf{A}_{\text{graph}} = \mathbf{A} \odot \exp(-\gamma \mathbf{D})
+\end{equation}
+
+\textit{Where $\sigma$ represents a Sigmoid activation gating, $\mathbf{W}_g$ is a learnable parameter weight matrix, and $\gamma$ acts as a structural decay constant.} This formulation ensures that when the state-space scan passes sequentially across highly linked biological pathways, the system retains context heavily, preventing long-range memory degradation across related functional gene groups.
+
+\section{Phase 4: Rigorous Benchmarking \& Verification Strategy}
+\textbf{Timeline:} Days 18--24 \\
+\textbf{Objective:} Conduct direct performance validation against active state-of-the-art computational baselines.
+
+\subsection{Execution Optimization}
+\begin{itemize}
+    \item Train the model utilizing an AdamW optimizer with a linear learning rate scheduler featuring warmup steps.
+    \item Implement cross-entropy loss coupled with mean squared error metrics focused strictly on the top 20 genes responding most aggressively to the specific perturbation.
+\end{itemize}
+
+\subsection{Statistical Baselining}
+Run identical datasets through the local implementations of \textbf{GEARS}, \textbf{scGPT} (fine-tuned for cellular perturbation prediction tasks), and \textbf{AttentionPert}. Ensure all comparative systems share identical cross-validation splits.
+
+\subsection{Metric Evaluation Matrix}
+Quantify performance profiles systematically by populating a master verification table:
+
+\begin{table}[!t]
+\caption{Metric Evaluation Matrix}
+\begin{tabular}{lp{1cm}p{1cm}p{1.2cm}p{1.5cm}}
+\toprule
+\textbf{Model} & \textbf{Split} & \textbf{MSE (Top 20)} & \textbf{Pearson ($r$)} & \textbf{Match Rate} \\
+\midrule
+\textbf{GCP-Mamba} & 0/2, 1/2, 2/2 & \textit{Compute} & \textit{Compute} & \textit{Compute} \\
+\textbf{GEARS} & 0/2, 1/2, 2/2 & \textit{Compute} & \textit{Compute} & \textit{Compute} \\
+\textbf{scGPT} & 0/2, 1/2, 2/2 & \textit{Compute} & \textit{Compute} & \textit{Compute} \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Phase 5: Biological Interpretation \& Explainability Audit}
+\textbf{Timeline:} Days 25--28 \\
+\textbf{Objective:} Transition statistical validation patterns into interpretable biological insights to satisfy editorial requirements.
+
+\subsection{Latent State Extraction}
+\begin{itemize}
+    \item Extract the magnitude patterns of the dynamic selection parameter $\mathbf{B}$ and step size parameter $\Delta$ across varying perturbation runs.
+    \item Map these internal state parameters back to specific biological entities to chart exactly how hidden information flows between pathways during synthetic knockouts.
+\end{itemize}
+
+\subsection{Epistatic Interaction Identification}
+\begin{itemize}
+    \item Identify instances where predicted gene expression states display non-additive behavior (e.g., buffering or strong synergy).
+    \item Plot these predicted profiles against true wet-lab test validation data to confirm that the model's performance improvements stem directly from accurately learning real biological mechanisms rather than simply minimizing training set loss metrics.
+\end{itemize}
+
+\section{Phase 6: Publication Preparation \& Submission Protocols}
+\textbf{Timeline:} Days 29--30 \\
+\textbf{Objective:} Package the developed tool according to the formal manuscript standards of Oxford's \textit{Bioinformatics}.
+
+\subsection{Code Packaging \& Reproducibility Preservation}
+\begin{itemize}
+    \item Package the finalized project code structure clearly, exposing clean, programmatic interfaces for inference tasks:
+\begin{verbatim}
+python predict_perturbation.py \
+  --gene_pairs "NF2+BRCA1" --cell_line "K562"
+\end{verbatim}
+    \item Push the absolute training state history, baseline configurations, configuration lists, and model weight binaries to GitHub.
+    \item Create a frozen, immutable archive of the repository structure using \textbf{Zenodo} to generate a permanent Digital Object Identifier (DOI) for cross-referencing within the manuscript text.
+\end{itemize}
+
+\subsection{Structural Manuscript Framing}
+\begin{itemize}
+    \item Format the final draft document strictly as an \textbf{Original Paper} (adhering strictly to the 7-page limitation constraint).
+    \item Organize the structure to balance technical innovation with biological utility:
+    \begin{itemize}
+        \item \textbf{Introduction:} Focus on the combinatorial problem and the computational scaling limits of Transformers.
+        \item \textbf{System Architecture:} Explicitly define the graph-conditioned Mamba equations.
+        \item \textbf{Results:} Lead with the comparative benchmarking table showing performance gains on Seen 0/2 datasets, followed immediately by the biological interpretability diagrams showing the recovered epistatic interactions.
+    \end{itemize}
+    \item \textbf{Cover Letter Optimization:} Craft a concise cover letter to the editorial staff. Ensure the opening paragraph leads directly with the exact computational design constructed and the clear architectural gap it addresses within the single-cell simulator ecosystem.
+\end{itemize}
+
+\end{document}
