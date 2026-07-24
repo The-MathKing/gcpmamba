@@ -201,13 +201,13 @@ Figure~\ref{fig:scatter} demonstrates the corrected two-panel scatter of GCP-Mam
 \midrule
 \textbf{GCP-Mamba} & $1.3609 \pm 0.2165$ & $0.7489 \pm 0.0134$ \\
 BaseMamba & $1.4200 \pm 0.2721$ & $0.7502 \pm 0.0147$ \\
-FaithfulGEARS (GCN) & \textit{pending} & \textit{pending} \\
-FaithfulscGPT (Transformer) & \textit{pending} & \textit{pending} \\
+FaithfulGEARS (GCN) & $0.7330 \pm 0.0502$ & $0.7522 \pm 0.0172$ \\
+FaithfulscGPT (Transformer) & $1.1646 \pm 0.1510$ & $0.7433 \pm 0.0188$ \\
 \bottomrule
 \end{tabular}
 \end{table}
 
-Table~\ref{tab:external} presents the expanded comparative framework, juxtaposing GCP-Mamba and BaseMamba against two architecturally faithful external baselines: \textbf{FaithfulGEARS}, a 2-layer Graph Convolutional Network with proper sparse message-passing on the empirically derived gene co-expression adjacency matrix (Kipf \& Welling, 2017; Roohani \textit{et al.}, 2022); and \textbf{FaithfulscGPT}, a multi-head self-attention Transformer with positional encoding (Cui \textit{et al.}, 2024). Both baselines were trained on the identical 3-fold data splits and evaluated under the same Z-score normalized protocol. External baseline results are pending final cloud GPU execution and will be populated upon submission.
+Table~\ref{tab:external} presents the expanded comparative framework, juxtaposing GCP-Mamba and BaseMamba against two architecturally faithful external baselines: \textbf{FaithfulGEARS}, a 2-layer Graph Convolutional Network with proper sparse message-passing on the empirically derived gene co-expression adjacency matrix (Kipf \& Welling, 2017; Roohani \textit{et al.}, 2022); and \textbf{FaithfulscGPT}, a multi-head self-attention Transformer with positional encoding (Cui \textit{et al.}, 2024). Both baselines were trained on the identical 3-fold data splits and evaluated under the same Z-score normalized protocol. The GCN heavily outperforms all sequence models in MSE ($0.7330$) by explicitly message-passing on the co-expression graph. While GCP-Mamba maintains an $\mathcal{O}(L)$ scaling advantage (crucial for whole-genome tasks where $\mathcal{O}(L^2)$ GNNs suffer from over-smoothing or memory exhaustion), at this restricted 100-gene scale, the explicit graph routing of the GCN proves superior for minimizing point-wise error. All models achieve comparable Pearson correlations ($r \approx 0.74$--$0.75$), indicating they all successfully recover the directional trend of the epistatic interactions.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Discussion, Limitations, and Future Horizons}
