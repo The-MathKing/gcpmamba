@@ -14,20 +14,12 @@ class PurePyTorchSSM(nn.Module):
         self.dt_proj = nn.Linear(d_model, d_model)
         
     def forward(self, x, delta_mod_precomputed, A_mod_precomputed):
-        """
-        Pure PyTorch State-Space sequence scan.
-        x: (batch, seq_len, d_model)
-        delta_mod_precomputed: (seq_len,) pre-reduced modifier
-        A_mod_precomputed: (seq_len,) pre-reduced modifier
-        
-        This process is strictly O(N) where N = seq_len.
-        """
         batch, seq_len, d_model = x.shape
         d_state = self.d_state
         
         dt = torch.exp(self.dt_proj(x)) # (batch, seq_len, d_model)
         
-        # Apply precomputed O(1) step modifiers (already reduced from NxN graph matrix)
+        # Apply precomputed O(1) step modifiers
         delta_context = delta_mod_precomputed.unsqueeze(0).unsqueeze(-1) # (1, seq_len, 1)
         dt = dt * delta_context
         
@@ -37,7 +29,6 @@ class PurePyTorchSSM(nn.Module):
         ys = []
         h = torch.zeros(batch, d_model, d_state, device=x.device)
         
-        # Iterate over sequence lengths O(N)
         for t in range(seq_len):
             x_t = x[:, t, :] # (batch, d_model)
             dt_t = dt[:, t, :] # (batch, d_model)
@@ -59,37 +50,30 @@ class GraphConditionedMambaBlock(nn.Module):
         self.n_genes = n_genes
         self.register_buffer('D', D) 
         
-        # W_g: Learnable weight matrix for interaction gating
         self.W_g = nn.Parameter(torch.randn(n_genes, n_genes) / n_genes)
-        # gamma: Structural decay constant
         self.gamma = nn.Parameter(torch.tensor([0.1]))
         
-        # PyTorch Native SSM
+        self.norm = nn.LayerNorm(d_model) # Prevents gradient flatlining
         self.ssm = PurePyTorchSSM(d_model=d_model, d_state=d_state)
         self.out_proj = nn.Linear(d_model, d_model)
         
     def precompute_graph_modifiers(self):
-        """
-        By pushing the O(N^2) graph conditioning step to a pre-computation cache,
-        the actual temporal scan remains O(N).
-        Δ_graph = Δ * sigmoid(W_g * D) -> reduced across dimension for scaling
-        A_graph = A * exp(-γ * D)
-        """
         delta_modifier_matrix = torch.sigmoid(self.W_g @ self.D)
         A_modifier_matrix = torch.exp(-self.gamma * self.D)
         
-        # Reduce to O(N) vector modifiers for the sequence scan
-        delta_mod_reduced = delta_modifier_matrix.mean(dim=-1) # (n_genes,)
-        A_mod_reduced = A_modifier_matrix.mean(dim=-1) # (n_genes,)
+        delta_mod_reduced = delta_modifier_matrix.mean(dim=-1)
+        A_mod_reduced = A_modifier_matrix.mean(dim=-1)
         
         return delta_mod_reduced, A_mod_reduced
 
     def forward(self, x):
-        # Precompute static graph modifiers, isolating O(N^2) compute from the main recurrent stream
+        residual = x
+        x = self.norm(x)
         delta_mod_precomputed, A_mod_precomputed = self.precompute_graph_modifiers()
         
         x = self.ssm(x, delta_mod_precomputed, A_mod_precomputed)
-        return self.out_proj(x)
+        x = self.out_proj(x)
+        return x + residual # Residual connection to prevent loss collapse
 
 class GCPMamba(nn.Module):
     def __init__(self, n_genes: int, D: torch.Tensor, d_model: int = 16, n_layers: int = 1):
@@ -97,15 +81,14 @@ class GCPMamba(nn.Module):
         self.n_genes = n_genes
         self.d_model = d_model
         
-        # Continuous Latent Space Projection
         self.embedding = nn.Linear(1, d_model)
         
-        # Reduced layer size for rapid CPU convergence
         self.layers = nn.ModuleList([
             GraphConditionedMambaBlock(d_model=d_model, n_genes=n_genes, D=D)
             for _ in range(n_layers)
         ])
         
+        self.norm_f = nn.LayerNorm(d_model)
         self.decoder = nn.Linear(d_model, 1)
         
     def forward(self, x):
@@ -115,5 +98,6 @@ class GCPMamba(nn.Module):
         for layer in self.layers:
             x = layer(x)
             
+        x = self.norm_f(x)
         x = self.decoder(x) 
         return x.squeeze(-1)
