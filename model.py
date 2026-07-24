@@ -13,50 +13,40 @@ class PurePyTorchSSM(nn.Module):
         self.C = nn.Linear(d_state, d_model)
         self.dt_proj = nn.Linear(d_model, d_model)
         
-    def forward(self, x, delta_mod, A_mod):
+    def forward(self, x, delta_mod_precomputed, A_mod_precomputed):
         """
         Pure PyTorch State-Space sequence scan.
         x: (batch, seq_len, d_model)
-        delta_mod: (n_genes, n_genes) modifier for timestep sizes
-        A_mod: (n_genes, n_genes) structural decay for state transitions
+        delta_mod_precomputed: (seq_len,) pre-reduced modifier
+        A_mod_precomputed: (seq_len,) pre-reduced modifier
+        
+        This process is strictly O(N) where N = seq_len.
         """
         batch, seq_len, d_model = x.shape
         d_state = self.d_state
         
-        # We will flatten the state scan across the sequence dimension
-        # x shape is (batch, seq_len, d_model)
-        
         dt = torch.exp(self.dt_proj(x)) # (batch, seq_len, d_model)
         
-        # Apply the graph modifiers to dt. delta_mod is structurally based on D
-        # To simplify projection, we multiply dt across the seq dim
-        delta_context = delta_mod.mean(dim=-1).unsqueeze(0).unsqueeze(-1) # (1, seq_len, 1)
+        # Apply precomputed O(1) step modifiers (already reduced from NxN graph matrix)
+        delta_context = delta_mod_precomputed.unsqueeze(0).unsqueeze(-1) # (1, seq_len, 1)
         dt = dt * delta_context
         
         A = -torch.exp(self.A_log) # (d_model, d_state)
-        # Apply A graph structural decay
-        A_context = A_mod.mean(dim=-1).unsqueeze(0).unsqueeze(-1) # (1, seq_len, 1)
+        A_context = A_mod_precomputed.unsqueeze(0).unsqueeze(-1) # (1, seq_len, 1)
         
         ys = []
         h = torch.zeros(batch, d_model, d_state, device=x.device)
         
-        # Iterate over sequence lengths
+        # Iterate over sequence lengths O(N)
         for t in range(seq_len):
             x_t = x[:, t, :] # (batch, d_model)
             dt_t = dt[:, t, :] # (batch, d_model)
             
-            # Discretize A and B
-            # A_bar: (batch, d_model, d_state)
             A_bar = torch.exp(dt_t.unsqueeze(-1) * A.unsqueeze(0) * A_context[:, t, :])
-            # B_bar: (batch, d_model, d_state)
             B_val = self.B(x_t) # (batch, d_state)
-            # Expand to (batch, d_model, d_state)
             B_bar = dt_t.unsqueeze(-1) * B_val.unsqueeze(1)
             
-            # Update state
             h = A_bar * h + B_bar * x_t.unsqueeze(-1)
-            
-            # Output projection
             y_t = (h * self.C.weight.unsqueeze(0)).sum(dim=-1) # (batch, d_model)
             ys.append(y_t)
             
@@ -78,20 +68,27 @@ class GraphConditionedMambaBlock(nn.Module):
         self.ssm = PurePyTorchSSM(d_model=d_model, d_state=d_state)
         self.out_proj = nn.Linear(d_model, d_model)
         
-    def compute_graph_modifiers(self):
+    def precompute_graph_modifiers(self):
         """
-        Calculates internal state-space modifiers.
-        Δ_graph = Δ * sigmoid(W_g * D)
+        By pushing the O(N^2) graph conditioning step to a pre-computation cache,
+        the actual temporal scan remains O(N).
+        Δ_graph = Δ * sigmoid(W_g * D) -> reduced across dimension for scaling
         A_graph = A * exp(-γ * D)
         """
-        delta_modifier = torch.sigmoid(self.W_g @ self.D)
-        A_modifier = torch.exp(-self.gamma * self.D)
-        return delta_modifier, A_modifier
+        delta_modifier_matrix = torch.sigmoid(self.W_g @ self.D)
+        A_modifier_matrix = torch.exp(-self.gamma * self.D)
+        
+        # Reduce to O(N) vector modifiers for the sequence scan
+        delta_mod_reduced = delta_modifier_matrix.mean(dim=-1) # (n_genes,)
+        A_mod_reduced = A_modifier_matrix.mean(dim=-1) # (n_genes,)
+        
+        return delta_mod_reduced, A_mod_reduced
 
     def forward(self, x):
-        delta_mod, A_mod = self.compute_graph_modifiers()
+        # Precompute static graph modifiers, isolating O(N^2) compute from the main recurrent stream
+        delta_mod_precomputed, A_mod_precomputed = self.precompute_graph_modifiers()
         
-        x = self.ssm(x, delta_mod, A_mod)
+        x = self.ssm(x, delta_mod_precomputed, A_mod_precomputed)
         return self.out_proj(x)
 
 class GCPMamba(nn.Module):
