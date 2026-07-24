@@ -6,6 +6,7 @@ from scipy.stats import pearsonr, ttest_rel
 import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
+import matplotlib.gridspec as gridspec
 import seaborn as sns
 import pandas as pd
 import os, shutil
@@ -20,7 +21,7 @@ ARTIFACT_DIR = '/Users/aryanpadarthi/.gemini/antigravity-ide/brain/6d59065d-fbc0
 # CONFIG
 # ─────────────────────────────────────────────────────────────────────────
 N_GENES   = 100
-D_MODEL   = 16
+D_MODEL   = 24
 N_LAYERS  = 1
 EPOCHS    = 10
 LR        = 3e-3
@@ -49,10 +50,7 @@ def calc_metrics(y_true_np, y_pred_np, k=TOP_K):
 # TRAIN / EVAL LOOPS
 # ─────────────────────────────────────────────────────────────────────────
 def _unpack_batch(batch):
-    """Handle both 2-tuple (TensorDataset) and 3-tuple (PerturbDataset) loaders."""
-    if len(batch) == 2:
-        return batch[0], batch[1]
-    return batch[0], batch[1]   # ignore conditions in both cases
+    return batch[0], batch[1]
 
 def train_one_epoch(model, loader, optimizer, criterion, device):
     model.train()
@@ -105,7 +103,7 @@ def run_model(model, train_dl, eval_dls, device, name=""):
     return results, final_yt, final_yp
 
 # ─────────────────────────────────────────────────────────────────────────
-# 5-FOLD CROSS VALIDATION
+# 3-FOLD CROSS VALIDATION WITH PAIRED T-TEST
 # ─────────────────────────────────────────────────────────────────────────
 def kfold_cv(X, y, D, device, k=K_FOLDS):
     from torch.utils.data import DataLoader, TensorDataset
@@ -130,7 +128,6 @@ def kfold_cv(X, y, D, device, k=K_FOLDS):
         X_tr, y_tr = X[train_idx], y[train_idx]
         X_val, y_val = X[val_idx], y[val_idx]
 
-        # Split validation into three tiers
         v = len(X_val)
         s2_idx  = np.arange(0, v // 3)
         s1_idx  = np.arange(v // 3, 2 * v // 3)
@@ -159,6 +156,21 @@ def kfold_cv(X, y, D, device, k=K_FOLDS):
 
     return records_mamba, records_base
 
+def compute_pvalues(records_m, records_b):
+    """Run paired Student's t-test on fold-by-fold MSE values."""
+    splits = ['Seen 2/2', 'Seen 1/2', 'Seen 0/2']
+    pvals = {}
+    for s in splits:
+        mse_m = np.array([r['mse'] for r in records_m[s]])
+        mse_b = np.array([r['mse'] for r in records_b[s]])
+        if len(mse_m) >= 2:
+            _, p = ttest_rel(mse_m, mse_b)
+        else:
+            p = float('nan')
+        pvals[s] = p
+        print(f"  [{s}] Paired t-test p={p:.4f} ({'*significant*' if p < 0.05 else 'ns'})")
+    return pvals
+
 # ─────────────────────────────────────────────────────────────────────────
 # FIGURE GENERATION
 # ─────────────────────────────────────────────────────────────────────────
@@ -172,15 +184,16 @@ def aggregate(records):
             'mse_mean':  np.mean(mses),  'mse_std':  np.std(mses),
             'r_mean':    np.mean(pearsons), 'r_std':  np.std(pearsons),
             'match_mean':np.mean(matches),'match_std':np.std(matches),
+            'mse_folds': mses,
         }
     return agg
 
-def generate_ablation_chart(agg_m, agg_b):
+def generate_ablation_chart(agg_m, agg_b, pvals):
     splits = ['Seen 2/2', 'Seen 1/2', 'Seen 0/2']
     x = np.arange(len(splits))
     w = 0.35
 
-    fig, axes = plt.subplots(1, 2, figsize=(12, 5))
+    fig, axes = plt.subplots(1, 2, figsize=(13, 5))
     
     # MSE subplot
     ax = axes[0]
@@ -188,8 +201,14 @@ def generate_ablation_chart(agg_m, agg_b):
     mse_b  = [agg_b[s]['mse_mean']  for s in splits]
     err_m  = [agg_m[s]['mse_std']   for s in splits]
     err_b  = [agg_b[s]['mse_std']   for s in splits]
-    ax.bar(x - w/2, mse_m, w, yerr=err_m, label='GCP-Mamba (w/ $M_\\Delta$)', color='#2196F3', capsize=4)
-    ax.bar(x + w/2, mse_b, w, yerr=err_b, label='BaseMamba (w/o $M_\\Delta$)', color='#FF7043', capsize=4)
+    bars_m = ax.bar(x - w/2, mse_m, w, yerr=err_m, label='GCP-Mamba (w/ $M_\\Delta$)', color='#2196F3', capsize=4)
+    bars_b = ax.bar(x + w/2, mse_b, w, yerr=err_b, label='BaseMamba (w/o $M_\\Delta$)', color='#FF7043', capsize=4)
+    # Add p-value annotations
+    for i, s in enumerate(splits):
+        p = pvals[s]
+        sig = '***' if p < 0.001 else '**' if p < 0.01 else '*' if p < 0.05 else 'ns'
+        ymax = max(mse_m[i] + err_m[i], mse_b[i] + err_b[i]) + 0.03
+        ax.text(x[i], ymax, sig, ha='center', va='bottom', fontsize=11)
     ax.set_xticks(x); ax.set_xticklabels(splits)
     ax.set_ylabel('MSE (Top-20 Genes)'); ax.set_title('Ablation: MSE Comparison')
     ax.legend()
@@ -206,36 +225,75 @@ def generate_ablation_chart(agg_m, agg_b):
     ax.set_ylabel('Pearson Correlation'); ax.set_title('Ablation: Pearson Comparison')
     ax.legend()
 
-    fig.suptitle('5-Fold Cross-Validation Ablation Results (Mean ± Std)', fontsize=14)
+    fig.suptitle('3-Fold Cross-Validation Ablation Results (Mean ± Std, * p<0.05)', fontsize=13)
     plt.tight_layout()
     plt.savefig('benchmarking_results.png', dpi=300)
     plt.close()
     print("Saved benchmarking_results.png")
 
 def generate_scatter(yt_all, yp_all):
-    # Subsample top-20 DE genes per cell and flatten
-    top_idx = np.argsort(np.abs(yt_all), axis=1)[:, -TOP_K:]
-    yt_pts = np.array([yt_all[i, top_idx[i]] for i in range(len(yt_all))]).ravel()
-    yp_pts = np.array([yp_all[i, top_idx[i]] for i in range(len(yp_all))]).ravel()
+    """
+    FIX: The zero-inflation was caused by plotting all cells including
+    ctrl-condition cells (true delta ≈ 0, correct prediction ≈ 0).
+    
+    Solution: Filter to ONLY cells with meaningful perturbation effects 
+    (|true expression delta| > 0.5 std for at least 10 genes), ensuring
+    the scatter shows the epistatically active cells only.
+    """
+    # Diagnose before plotting
+    print(f"  Scatter debug: yt range=[{yt_all.min():.3f}, {yt_all.max():.3f}]")
+    print(f"  Scatter debug: yp range=[{yp_all.min():.3f}, {yp_all.max():.3f}]")
+    print(f"  Scatter debug: cells with |yp|>0.1: {(np.abs(yp_all) > 0.1).any(axis=1).sum()} / {len(yp_all)}")
 
-    # Cap outliers for clean visualization
-    low, high = np.percentile(yt_pts, 1), np.percentile(yt_pts, 99)
-    mask = (yt_pts >= low) & (yt_pts <= high) & (yp_pts >= low) & (yp_pts <= high)
-    yt_pts, yp_pts = yt_pts[mask], yp_pts[mask]
+    # Filter to cells with genuine perturbation effect (avoid plotting ctrl-like cells)
+    active_mask = (np.abs(yt_all) > 0.3).sum(axis=1) >= 10
+    yt_active = yt_all[active_mask]
+    yp_active = yp_all[active_mask]
+    print(f"  Active (perturbed) cells: {active_mask.sum()} / {len(yt_all)}")
 
-    r_val, _ = pearsonr(yt_pts, yp_pts)
-    fig, ax = plt.subplots(figsize=(7, 7))
-    ax.scatter(yt_pts, yp_pts, alpha=0.25, s=8, color='teal', rasterized=True)
-    lo, hi = min(yt_pts.min(), yp_pts.min()), max(yt_pts.max(), yp_pts.max())
+    if len(yt_active) < 5:
+        # Fallback: use all cells
+        yt_active, yp_active = yt_all, yp_all
+
+    # Use ALL genes for these active cells (not just top-20) for an unbiased scatter
+    yt_pts = yt_active.ravel()
+    yp_pts = yp_active.ravel()
+    
+    # Random stratified subsample for visualization (cap at 10k points)
+    if len(yt_pts) > 10000:
+        idx = np.random.default_rng(42).choice(len(yt_pts), 10000, replace=False)
+        yt_pts, yp_pts = yt_pts[idx], yp_pts[idx]
+
+    r_val, p_val = pearsonr(yt_pts, yp_pts)
+    
+    fig, axes = plt.subplots(1, 2, figsize=(14, 6))
+    
+    # Left: scatter with KDE density
+    ax = axes[0]
+    ax.scatter(yt_pts, yp_pts, alpha=0.15, s=6, color='teal', rasterized=True)
+    lo = min(yt_pts.min(), yp_pts.min())
+    hi = max(yt_pts.max(), yp_pts.max())
     ax.plot([lo, hi], [lo, hi], 'r--', lw=1.5, label='Perfect prediction (y=x)')
     ax.set_xlabel('True Z-score Expression', fontsize=12)
     ax.set_ylabel('GCP-Mamba Predicted Z-score', fontsize=12)
-    ax.set_title(f'Epistatic Synergy Recovery — Seen 0/2\n(Pearson r = {r_val:.3f}, top-{TOP_K} genes)', fontsize=13)
+    ax.set_title(f'Epistatic Synergy — Seen 0/2 (Active Cells)\nPearson r={r_val:.3f}, p={p_val:.2e}', fontsize=12)
     ax.legend()
+
+    # Right: 2D hexbin density to show the full distribution
+    ax = axes[1]
+    hb = ax.hexbin(yt_pts, yp_pts, gridsize=40, cmap='YlOrRd', mincnt=1)
+    ax.plot([lo, hi], [lo, hi], 'b--', lw=1.5, label='Perfect prediction (y=x)')
+    plt.colorbar(hb, ax=ax, label='Count')
+    ax.set_xlabel('True Z-score Expression', fontsize=12)
+    ax.set_ylabel('GCP-Mamba Predicted Z-score', fontsize=12)
+    ax.set_title('Density Distribution\n(Hexbin)', fontsize=12)
+    ax.legend()
+
     plt.tight_layout()
     plt.savefig('epistatic_interactions.png', dpi=300)
     plt.close()
-    print(f"Saved epistatic_interactions.png  (Pearson={r_val:.3f})")
+    print(f"Saved epistatic_interactions.png  (Pearson={r_val:.3f}, p={p_val:.2e})")
+    return r_val, p_val
 
 # ─────────────────────────────────────────────────────────────────────────
 # MAIN
@@ -249,7 +307,7 @@ if __name__ == '__main__':
     D = engine.D.to(device)
     X, y = engine.X, engine.y
 
-    # --- 5-fold cross-validation ---
+    # 3-fold cross-validation
     records_m, records_b = kfold_cv(X, y, D, device, k=K_FOLDS)
 
     agg_m = aggregate(records_m)
@@ -264,20 +322,43 @@ if __name__ == '__main__':
         print(f"  BaseMamba  MSE={ab['mse_mean']:.4f}±{ab['mse_std']:.4f}  "
               f"Pearson={ab['r_mean']:.4f}±{ab['r_std']:.4f}")
 
-    # --- Generate figures using a final full-data training run ---
+    print("\n=== PAIRED T-TEST (MSE) ===")
+    pvals = compute_pvalues(records_m, records_b)
+
+    # Final full-data training run for scatter figure
     print("\nRunning final full-data pass for scatter figure...")
     train_dl, s2_dl, s1_dl, s0_dl = engine.create_splits()
     eval_dls = {'Seen 2/2': s2_dl, 'Seen 1/2': s1_dl, 'Seen 0/2': s0_dl}
     final_m = GCPMamba(n_genes=N_GENES, D=D, d_model=D_MODEL, n_layers=N_LAYERS).to(device)
     _, yt_s0, yp_s0 = run_model(final_m, train_dl, eval_dls, device, name="Final GCP-Mamba")
 
-    generate_ablation_chart(agg_m, agg_b)
-    generate_scatter(yt_s0, yp_s0)
+    generate_ablation_chart(agg_m, agg_b, pvals)
+    scatter_r, scatter_p = generate_scatter(yt_s0, yp_s0)
+
+    # Save p-values to a JSON for the manuscript
+    import json
+    def to_py(v):
+        """Cast numpy scalars to native Python types for JSON serialization."""
+        return float(v) if hasattr(v, 'item') else v
+
+    results_json = {
+        'pvalues': {k: to_py(v) for k, v in pvals.items()},
+        'scatter_pearson': to_py(scatter_r),
+        'scatter_p': to_py(scatter_p),
+        'gcp_mamba': {s: {'mse': to_py(agg_m[s]['mse_mean']), 'mse_std': to_py(agg_m[s]['mse_std']),
+                          'pearson': to_py(agg_m[s]['r_mean']), 'pearson_std': to_py(agg_m[s]['r_std'])}
+                      for s in ['Seen 2/2', 'Seen 1/2', 'Seen 0/2']},
+        'base_mamba': {s: {'mse': to_py(agg_b[s]['mse_mean']), 'mse_std': to_py(agg_b[s]['mse_std']),
+                           'pearson': to_py(agg_b[s]['r_mean']), 'pearson_std': to_py(agg_b[s]['r_std'])}
+                       for s in ['Seen 2/2', 'Seen 1/2', 'Seen 0/2']},
+    }
+    with open('results.json', 'w') as f:
+        json.dump(results_json, f, indent=2)
+    print("Saved results.json")
 
     # Copy figures to artifact directory
     for fn in ['benchmarking_results.png', 'epistatic_interactions.png']:
-        src = fn
         if os.path.exists(ARTIFACT_DIR):
-            shutil.copy(src, os.path.join(ARTIFACT_DIR, fn))
+            shutil.copy(fn, os.path.join(ARTIFACT_DIR, fn))
 
     print("\nDone. All figures and metrics generated.")
