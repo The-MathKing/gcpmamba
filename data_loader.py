@@ -1,125 +1,150 @@
 import numpy as np
 import networkx as nx
-from typing import Tuple, List
 import torch
 from torch.utils.data import Dataset, DataLoader
+import scanpy as sc
+import json
+import os
+from scipy.sparse.csgraph import shortest_path
 
-class PerturbDataset(Dataset):
-    def __init__(self, X: torch.Tensor, y: torch.Tensor, condition: List[str]):
+class PseudobulkDataset(Dataset):
+    def __init__(self, X: torch.Tensor, y: torch.Tensor, conditions: list):
+        """
+        X: (N_conditions, d_model) — input perturbation indicators.
+        y: (N_conditions, d_model) — target pseudobulk shifts.
+        conditions: list of str
+        """
         self.X = X
         self.y = y
-        self.condition = condition
+        self.conditions = conditions
         
     def __len__(self):
         return len(self.X)
     
     def __getitem__(self, idx):
-        return self.X[idx], self.y[idx], self.condition[idx]
+        return self.X[idx], self.y[idx], self.conditions[idx]
 
 class DataEngine:
-    def __init__(self, top_genes: int = 100):
+    def __init__(self, top_genes: int = 500, h5ad_path: str = 'data/norman/perturb_processed.h5ad'):
         self.top_genes = top_genes
+        self.h5ad_path = h5ad_path
         self.D = None
         self.X = None
         self.y = None
         self.conditions = None
-        self.y_mean = None
-        self.y_std = None
+        self.gene_names = None
         
-    def generate_empirical_structured_data(self):
-        """
-        Loads empirical PBMC3k data and applies:
-        1. Z-score standardization to BOTH inputs and targets (fixes MSE ~11 and the y=0 flatline)
-        2. Orthogonal noise for target perturbation (severs circular GO leakage)
-        3. Empirical covariance-based structural graph D
-        """
-        print("Initializing empirical dataset mapping...")
-        import scanpy as sc
+        self.train_loader = None
+        self.seen2_loader = None
+        self.seen1_loader = None
+        self.seen0_loader = None
         
-        adata = sc.datasets.pbmc3k()
-        sc.pp.filter_genes(adata, min_cells=3)
+    def prepare_data(self):
+        print(f"Loading {self.h5ad_path}...")
+        adata = sc.read_h5ad(self.h5ad_path)
+        
+        # Load splits manifest
+        with open('splits_manifest.json', 'r') as f:
+            manifest = json.load(f)
+            
+        train_singles = manifest['train_singles']
+        test_singles = manifest['test_singles']
+        seen2_doubles = manifest['seen2_doubles']
+        seen1_doubles = manifest['seen1_doubles']
+        seen0_doubles = manifest['seen0_doubles']
+        
+        # Identify HVGs ONLY using training data (ctrl + train_singles)
+        # This prevents data leakage into the feature selection
+        train_mask = adata.obs['condition'].isin(['ctrl'] + train_singles)
+        adata_train = adata[train_mask].copy()
+        
+        sc.pp.filter_genes(adata_train, min_cells=3)
+        sc.pp.normalize_total(adata_train, target_sum=1e4)
+        sc.pp.log1p(adata_train)
+        sc.pp.highly_variable_genes(adata_train, n_top_genes=self.top_genes, subset=True)
+        
+        self.gene_names = adata_train.var_names.tolist()
+        
+        # Now apply the HVG filter and normalization to the FULL dataset
+        adata = adata[:, self.gene_names].copy()
         sc.pp.normalize_total(adata, target_sum=1e4)
         sc.pp.log1p(adata)
-        sc.pp.highly_variable_genes(adata, n_top_genes=self.top_genes, subset=True)
+        
         X_base = adata.X.toarray() if hasattr(adata.X, "toarray") else np.array(adata.X)
         
-        n_cells, n_genes = X_base.shape
+        # Z-score standardize based on training data statistics
+        X_train_base = X_base[train_mask]
+        X_mean = X_train_base.mean(axis=0, keepdims=True)
+        X_std = X_train_base.std(axis=0, keepdims=True) + 1e-8
         
-        # --- CRITICAL FIX: Z-score standardize inputs ---
-        X_mean = X_base.mean(axis=0, keepdims=True)
-        X_std = X_base.std(axis=0, keepdims=True) + 1e-8
         X_base_z = (X_base - X_mean) / X_std
+        adata.X = X_base_z
         
-        # Build empirical topological graph D from correlation structure
-        cov_matrix = np.corrcoef(X_base.T)
+        # Compute control mean for pseudobulking
+        ctrl_mask = adata.obs['condition'] == 'ctrl'
+        ctrl_mean = X_base_z[ctrl_mask].mean(axis=0)
+        
+        # Build topological graph D based on empirical covariance of training data
+        cov_matrix = np.corrcoef(X_train_base.T)
         cov_matrix = np.nan_to_num(cov_matrix)
         adj_matrix = (np.abs(cov_matrix) > 0.3).astype(float)
-        from scipy.sparse.csgraph import shortest_path
         D = shortest_path(adj_matrix, method='auto', unweighted=True)
         D[np.isinf(D)] = 10
         self.D = torch.tensor(D, dtype=torch.float32)
         print("Structural graph extracted from empirical covariance.")
-
-        # Decouple target generation from graph topology using an orthogonal drift
-        rng = np.random.default_rng(seed=42)
-        orthogonal_drift = rng.normal(0, 1, (n_genes, n_genes))
-
-        y_target = np.copy(X_base_z)
-        conditions = []
         
-        for i in range(n_cells):
-            cond_type = rng.choice(['ctrl', 'single', 'double'], p=[0.2, 0.4, 0.4])
+        # Calculate condition-level pseudobulks for ALL conditions
+        unique_conditions = adata.obs['condition'].unique()
+        
+        # Create a mapping from gene name to index
+        gene_to_idx = {g: i for i, g in enumerate(self.gene_names)}
+        
+        cond_X_list = []
+        cond_y_list = []
+        cond_names = []
+        
+        for cond in unique_conditions:
+            if cond == 'ctrl': continue
             
-            if cond_type == 'ctrl':
-                conditions.append('ctrl')
-            elif cond_type == 'single':
-                g1 = rng.integers(0, n_genes)
-                conditions.append(f"gene_{g1}")
-                effect = orthogonal_drift[g1, :] * rng.normal(0.3, 0.1, n_genes)
-                y_target[i, :] += effect
+            mask = adata.obs['condition'] == cond
+            cond_mean = X_base_z[mask].mean(axis=0)
+            delta_y = cond_mean - ctrl_mean
+            
+            # Construct input vector (perturbation indicator)
+            # If a gene was perturbed and is in our HVG set, we set its input to 1.
+            x_in = np.zeros(self.top_genes, dtype=np.float32)
+            genes_perturbed = []
+            if '+' in cond:
+                genes_perturbed = cond.split('+')
             else:
-                g1, g2 = rng.choice(n_genes, 2, replace=False)
-                conditions.append(f"gene_{g1}+gene_{g2}")
-                effect1 = orthogonal_drift[g1, :] * rng.normal(0.3, 0.1, n_genes)
-                effect2 = orthogonal_drift[g2, :] * rng.normal(0.3, 0.1, n_genes)
-                # True epistatic synergy independent of graph topology
-                synergy = (orthogonal_drift[g1, :] * orthogonal_drift[g2, :]) * rng.normal(0.5, 0.15, n_genes)
-                y_target[i, :] += effect1 + effect2 + synergy
+                genes_perturbed = [cond.split('+')[0]] # single has +ctrl
+                
+            for g in genes_perturbed:
+                if g in gene_to_idx:
+                    x_in[gene_to_idx[g]] = 1.0
+                    
+            cond_X_list.append(x_in)
+            cond_y_list.append(delta_y)
+            cond_names.append(cond)
+            
+        X_tensor = torch.tensor(np.array(cond_X_list))
+        y_tensor = torch.tensor(np.array(cond_y_list))
         
-        # --- CRITICAL FIX: Z-score standardize targets (fixes MSE >> 1 and y=0 flatline) ---
-        self.y_mean = y_target.mean(axis=0, keepdims=True)
-        self.y_std = y_target.std(axis=0, keepdims=True) + 1e-8
-        y_target_z = (y_target - self.y_mean) / self.y_std
-        
-        self.X = torch.tensor(X_base_z, dtype=torch.float32)
-        self.y = torch.tensor(y_target_z, dtype=torch.float32)
-        self.conditions = conditions
-        print(f"Dataset ready: {n_cells} cells, {n_genes} genes.")
-        print(f"  Input  range: [{self.X.min():.2f}, {self.X.max():.2f}]")
-        print(f"  Target range: [{self.y.min():.2f}, {self.y.max():.2f}]")
-
-    def create_splits(self) -> Tuple[DataLoader, DataLoader, DataLoader, DataLoader]:
-        n_cells = len(self.X)
-        rng = np.random.default_rng(seed=99)
-        indices = rng.permutation(n_cells)
-        
-        split1 = int(0.60 * n_cells)
-        split2 = int(0.75 * n_cells)
-        split3 = int(0.90 * n_cells)
-        
-        train_idx = indices[:split1]
-        seen2_idx = indices[split1:split2]
-        seen1_idx = indices[split2:split3]
-        seen0_idx = indices[split3:]
-        
-        def get_loader(idx, shuffle=False):
-            ds = PerturbDataset(
-                self.X[idx], self.y[idx],
-                [self.conditions[i] for i in idx]
-            )
+        def create_loader(cond_list, shuffle=False):
+            idx = [i for i, c in enumerate(cond_names) if c in cond_list]
+            if len(idx) == 0:
+                # Return empty loader for empty splits
+                return DataLoader(PseudobulkDataset(torch.empty(0, self.top_genes), torch.empty(0, self.top_genes), []), batch_size=64)
+            ds = PseudobulkDataset(X_tensor[idx], y_tensor[idx], [cond_names[i] for i in idx])
             return DataLoader(ds, batch_size=64, shuffle=shuffle)
             
-        return (get_loader(train_idx, True),
-                get_loader(seen2_idx),
-                get_loader(seen1_idx),
-                get_loader(seen0_idx))
+        self.train_loader = create_loader(train_singles + seen2_doubles, shuffle=True)
+        self.seen2_loader = create_loader(seen2_doubles)
+        self.seen1_loader = create_loader(seen1_doubles)
+        self.seen0_loader = create_loader(seen0_doubles)
+        
+        print(f"Data Engine Ready!")
+        print(f"Train batches: {len(self.train_loader)}")
+        print(f"Seen 2/2 batches: {len(self.seen2_loader)}")
+        print(f"Seen 1/2 batches: {len(self.seen1_loader)}")
+        print(f"Seen 0/2 batches: {len(self.seen0_loader)}")

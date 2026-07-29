@@ -1,21 +1,18 @@
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from torch.utils.data import DataLoader, TensorDataset
 import numpy as np
-from scipy.stats import pearsonr
+import pandas as pd
 import json
+from sklearn.linear_model import Ridge
 
 from data_loader import DataEngine
-import argparse
 
-N_GENES = 5000
-EPOCHS = 1
-LR = 3e-3
-BATCH = 64
-TOP_K = 20
-K_FOLDS = 2
-device = torch.device('cuda' if torch.cuda.is_available() else 'cpu')
+N_GENES = 500
+EPOCHS = 50
+LR = 1e-3
+SEEDS = [42, 100, 2026, 777, 999]
+DEVICE = "cpu"
 
 class GCNLayer(nn.Module):
     def __init__(self, in_features, out_features):
@@ -27,7 +24,7 @@ class GCNLayer(nn.Module):
         return F.relu(self.linear(agg))
 
 class FaithfulGEARS(nn.Module):
-    def __init__(self, n_genes, adj_norm, hidden=64):
+    def __init__(self, n_genes, adj_norm, hidden=32):
         super().__init__()
         self.register_buffer('adj_norm', adj_norm)
         self.gcn1 = GCNLayer(1, hidden)
@@ -41,102 +38,119 @@ class FaithfulGEARS(nn.Module):
         x = self.gcn2(x, self.adj_norm)
         return self.decoder(x).squeeze(-1)
 
-def calc_metrics(yt, yp, k=TOP_K):
-    mse_list, r_list = [], []
-    for y_t, y_p in zip(yt, yp):
-        idx = np.argsort(np.abs(y_t))[-k:]
-        yt_k, yp_k = y_t[idx], y_p[idx]
-        mse_list.append(np.mean((yt_k - yp_k)**2))
-        if np.std(yt_k) > 1e-6 and np.std(yp_k) > 1e-6:
-            r_list.append(pearsonr(yt_k, yp_k)[0])
-        else:
-            r_list.append(0.0)
-    return np.mean(mse_list), np.mean(r_list)
+def evaluate_and_append(y_true, y_pred, conds, model_name, seed_idx, split_name, results_list):
+    for i, cond in enumerate(conds):
+        for g_idx in range(N_GENES):
+            results_list.append({
+                "Split": split_name,
+                "Condition": cond,
+                "Model": model_name,
+                "Seed": seed_idx,
+                "Gene_Idx": g_idx,
+                "True_Value": y_true[i, g_idx],
+                "Pred_Value": y_pred[i, g_idx]
+            })
 
-def train_eval(model, train_dl, eval_dls):
-    opt = torch.optim.AdamW(model.parameters(), lr=LR, weight_decay=1e-4)
-    crit = nn.MSELoss()
-    for epoch in range(1, EPOCHS+1):
-        model.train()
-        for xb, yb in train_dl:
-            xb, yb = xb.to(device), yb.to(device)
-            opt.zero_grad()
-            loss = crit(model(xb), yb)
-            loss.backward()
-            opt.step()
-    
-    results = {}
-    model.eval()
-    for split_name, (X_v, y_v) in eval_dls.items():
-        with torch.no_grad():
-            yp = model(X_v.to(device)).cpu().numpy()
-        mse, r = calc_metrics(y_v.numpy(), yp)
-        results[split_name] = dict(mse=mse, pearson=r)
-    return results
-
-def evaluate_gears():
-    print("=======================================")
-    print("Evaluating GEARS Baseline (FaithfulGEARS proxy)")
-    print("=======================================")
+def run_baselines():
+    print("Initializing DataEngine...")
     engine = DataEngine(top_genes=N_GENES)
-    engine.generate_empirical_structured_data()
-    D = engine.D
-    X_t = engine.X
-    y_t = engine.y
+    engine.prepare_data()
     
-    # Reconstruct adjacency from distance matrix
+    D = engine.D
     adj = (D == 1).float() + torch.eye(N_GENES)
     deg = adj.sum(1, keepdim=True).clamp(min=1)
-    adj_norm = (adj / deg).to(device)
+    adj_norm = (adj / deg).to(DEVICE)
     
-    n = len(X_t)
-    fold_size = n // K_FOLDS
-    splits_names = ['Seen 2/2', 'Seen 1/2', 'Seen 0/2']
-    records_gcn = {s: [] for s in splits_names}
+    # Load existing predictions to append
+    try:
+        df_exist = pd.read_csv("predictions.csv")
+        results_list = df_exist.to_dict('records')
+        print(f"Loaded existing predictions.csv with {len(results_list)} records.")
+    except:
+        results_list = []
+        print("Starting fresh predictions list.")
+        
+    # Pre-calculate condition singles for additive baseline
+    # Extract training singles
+    train_X, train_y, train_c = [], [], []
+    for x, y, c in engine.train_loader:
+        train_X.append(x.numpy())
+        train_y.append(y.numpy())
+        train_c.extend(c)
+    train_X = np.concatenate(train_X)
+    train_y = np.concatenate(train_y)
     
-    rng = np.random.default_rng(7)
-    perm = rng.permutation(n)
-    X_t, y_t = X_t[perm], y_t[perm]
-    
-    for fold in range(K_FOLDS):
-        print(f"\nFold {fold+1}/{K_FOLDS}")
-        val_start = fold * fold_size
-        val_end   = val_start + fold_size
-        val_idx   = np.arange(val_start, val_end)
-        train_idx = np.concatenate([np.arange(0, val_start), np.arange(val_end, n)])
-        
-        X_tr, y_tr = X_t[train_idx], y_t[train_idx]
-        X_val, y_val = X_t[val_idx], y_t[val_idx]
-        
-        v = len(X_val)
-        eval_dls = {
-            'Seen 2/2': (X_val[:v//3], y_val[:v//3]),
-            'Seen 1/2': (X_val[v//3:2*v//3], y_val[v//3:2*v//3]),
-            'Seen 0/2': (X_val[2*v//3:], y_val[2*v//3:])
-        }
-        
-        train_dl = DataLoader(TensorDataset(X_tr, y_tr), batch_size=BATCH, shuffle=True)
-        gcn = FaithfulGEARS(N_GENES, adj_norm).to(device)
-        res_gcn = train_eval(gcn, train_dl, eval_dls)
-        print(f"  GCN done: {res_gcn}")
-        
-        for s in splits_names:
-            records_gcn[s].append(res_gcn[s])
-            
-    print("\n=== BASELINE RESULTS ===")
-    output = {'faithful_gcn': {}}
-    for s in splits_names:
-        mses = [r['mse'] for r in records_gcn[s]]
-        rs = [r['pearson'] for r in records_gcn[s]]
-        output['faithful_gcn'][s] = {
-            'mse': float(np.mean(mses)), 'mse_std': float(np.std(mses)),
-            'pearson': float(np.mean(rs)), 'pearson_std': float(np.std(rs))
-        }
-        print(f"[{s}] GCN:  MSE={np.mean(mses):.4f}±{np.std(mses):.4f}  r={np.mean(rs):.4f}")
-        
-    with open('baseline_results.json', 'w') as f:
-        json.dump(output, f, indent=2)
-    print("Saved baseline_results.json")
+    single_effects = {}
+    for c_name, y_val in zip(train_c, train_y):
+        if '+' not in c_name:
+            # wait, they end with +ctrl
+            if c_name.endswith('+ctrl'):
+                single_effects[c_name.split('+')[0]] = y_val
 
-if __name__ == '__main__':
-    evaluate_gears()
+    cond_mean = train_y.mean(axis=0)
+    
+    for seed in SEEDS:
+        print(f"\n=== Baseline Seed {seed} ===")
+        torch.manual_seed(seed)
+        np.random.seed(seed)
+        
+        # 1. GEARS (GCN)
+        gcn = FaithfulGEARS(N_GENES, adj_norm).to(DEVICE)
+        opt = torch.optim.AdamW(gcn.parameters(), lr=LR, weight_decay=1e-4)
+        crit = nn.MSELoss()
+        
+        for ep in range(1, EPOCHS+1):
+            gcn.train()
+            for xb, yb, _ in engine.train_loader:
+                xb, yb = xb.to(DEVICE), yb.to(DEVICE)
+                opt.zero_grad()
+                loss = crit(gcn(xb), yb)
+                loss.backward()
+                opt.step()
+        
+        # 2. Linear Regression (Ridge)
+        ridge = Ridge(alpha=1.0)
+        ridge.fit(train_X, train_y)
+        
+        # Eval loop
+        splits = [
+            ("Seen 2/2", engine.seen2_loader),
+            ("Seen 1/2", engine.seen1_loader),
+            ("Seen 0/2", engine.seen0_loader)
+        ]
+        
+        gcn.eval()
+        with torch.no_grad():
+            for split_name, loader in splits:
+                if len(loader.dataset) == 0: continue
+                
+                for xb, yb, conds in loader:
+                    y_true = yb.numpy()
+                    
+                    # GEARS
+                    y_gcn = gcn(xb.to(DEVICE)).cpu().numpy()
+                    evaluate_and_append(y_true, y_gcn, conds, "GEARS", seed, split_name, results_list)
+                    
+                    # Linear
+                    y_lin = ridge.predict(xb.numpy())
+                    evaluate_and_append(y_true, y_lin, conds, "Linear", seed, split_name, results_list)
+                    
+                    # Condition Mean
+                    y_mean = np.tile(cond_mean, (len(conds), 1))
+                    evaluate_and_append(y_true, y_mean, conds, "Condition Mean", seed, split_name, results_list)
+                    
+                    # Additive
+                    y_add = np.zeros_like(y_true)
+                    for i, cond in enumerate(conds):
+                        g1, g2 = cond.split('+')
+                        eff1 = single_effects.get(g1, np.zeros(N_GENES))
+                        eff2 = single_effects.get(g2, np.zeros(N_GENES))
+                        y_add[i] = eff1 + eff2
+                    evaluate_and_append(y_true, y_add, conds, "Additive", seed, split_name, results_list)
+
+    df = pd.DataFrame(results_list)
+    df.to_csv("predictions.csv", index=False)
+    print("\nSaved all baselines to predictions.csv successfully.")
+
+if __name__ == "__main__":
+    run_baselines()
