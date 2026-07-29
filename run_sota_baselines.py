@@ -21,19 +21,21 @@ class GCNLayer(nn.Module):
     
     def forward(self, x, adj_norm):
         agg = torch.bmm(adj_norm.unsqueeze(0).expand(x.size(0), -1, -1), x)
-        return F.relu(self.linear(agg))
+        return F.gelu(self.linear(agg))
 
 class FaithfulGEARS(nn.Module):
     def __init__(self, n_genes, adj_norm, hidden=32):
         super().__init__()
         self.register_buffer('adj_norm', adj_norm)
-        self.gcn1 = GCNLayer(1, hidden)
+        self.gene_emb = nn.Embedding(2, hidden)
+        self.gcn1 = GCNLayer(hidden, hidden)
         self.gcn2 = GCNLayer(hidden, hidden)
         self.decoder = nn.Linear(hidden, 1)
         nn.init.xavier_normal_(self.decoder.weight)
     
     def forward(self, x):
-        x = x.unsqueeze(-1)
+        # x is (B, N) with values 0 or 1.
+        x = self.gene_emb((x > 0).long())
         x = self.gcn1(x, self.adj_norm)
         x = self.gcn2(x, self.adj_norm)
         return self.decoder(x).squeeze(-1)

@@ -68,6 +68,7 @@ def run_training_pipeline():
     D_permuted = D_permuted[perm_idx][:, perm_idx]
     
     results_list = []
+    loss_history = {}
     
     for seed in SEEDS:
         print(f"\n=== Running Seed {seed} ===")
@@ -81,13 +82,16 @@ def run_training_pipeline():
             "GCP-Mamba (Permuted GO)": GCPMamba(n_genes=N_GENES, D=D_permuted, d_model=D_MODEL, n_layers=N_LAYERS).to(DEVICE)
         }
         
+        loss_history[seed] = {}
         for name, model in models.items():
             print(f"  Training {name}...")
             optimizer = optim.AdamW(model.parameters(), lr=LR, weight_decay=1e-4)
             criterion = nn.MSELoss()
             
+            loss_history[seed][name] = []
             for ep in range(1, EPOCHS + 1):
                 loss = train_one_epoch(model, engine.train_loader, optimizer, criterion)
+                loss_history[seed][name].append(loss)
                 if ep == EPOCHS or ep % 10 == 0:
                     print(f"    Epoch {ep:2d} | loss={loss:.4f}")
             
@@ -100,6 +104,32 @@ def run_training_pipeline():
     df = pd.DataFrame(results_list)
     df.to_csv("predictions.csv", index=False)
     print("\nSaved predictions.csv successfully. All further analysis will use this canonical file.")
+    
+    with open("training_losses.json", "w") as f:
+        json.dump(loss_history, f)
+    print("Saved training_losses.json.")
+    
+    # Compute M_delta vs GO distance correlation for GCP-Mamba
+    print("\n--- M_delta vs GO distance analysis ---")
+    d_flat = D.cpu().numpy().flatten()
+    m_deltas = []
+    # Using the last seed's GCP-Mamba model
+    model = models["GCP-Mamba"]
+    model.eval()
+    with torch.no_grad():
+        W_g = model.layers[0].W_g.cpu()
+        D_cpu = D.cpu()
+        M_gene = torch.sigmoid(W_g @ D_cpu).mean(dim=-1) # (N,)
+        # Create pairwise matrix from M_gene
+        M_pair = M_gene.unsqueeze(1).repeat(1, N_GENES)
+        m_flat = M_pair.numpy().flatten()
+        
+    from scipy.stats import pearsonr
+    valid = (d_flat > 0)
+    r_val, p_val = pearsonr(d_flat[valid], m_flat[valid])
+    print(f"M_delta vs Distance: r = {r_val:.3f}, n = {valid.sum()}, p = {p_val:.4e}")
+    with open("m_delta_stats.json", "w") as f:
+        json.dump({"r": r_val, "n": int(valid.sum()), "p": p_val}, f)
 
 if __name__ == "__main__":
     run_training_pipeline()
