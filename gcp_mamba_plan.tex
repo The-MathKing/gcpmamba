@@ -127,12 +127,12 @@ Model input is a one-hot perturbation indicator vector $\mathbf{p} \in \{0,1\}^N
 
 \subsection{GCP-Mamba Architecture and Complexity Proof}
 
-\begin{figure}[!htbp]
+\begin{figure*}[!htbp]
 \centering
-\includegraphics[width=\columnwidth]{architecture_diagram.png}
+\includegraphics[width=\textwidth]{architecture_diagram.png}
 \caption{\textbf{Alt Text: A flowchart showing Gene Ontology data passing through a GCN into the Delta discretization parameter of a Mamba SSM block.} GCP-Mamba architectural routing. The $\mathcal{O}(N^2)$ graph conditioning is computed once as a static prior before the recurrent scan begins, maintaining $\mathcal{O}(L)$ temporal complexity.}
 \label{fig:arch}
-\end{figure}
+\end{figure*}
 
 As shown in Figure~\ref{fig:arch}, GCP-Mamba injects GO topology into the Mamba discretization step. A pairwise shortest-path distance matrix $\mathbf{D} \in \mathbb{R}^{N \times N}$ is pre-computed over the GO co-expression graph. The \textbf{graph-conditioned step modifier} $\mathbf{M}_\Delta$ is computed statically before the sequence scan:
 \begin{equation}
@@ -183,7 +183,7 @@ Gene panel size & 5{,}000 \\
 
 \begin{figure}[!htbp]
 \centering
-% \includegraphics[width=\columnwidth]{memory_scaling.png}
+\includegraphics[width=\columnwidth]{memory_scaling.png}
 \caption{\textbf{Alt Text: Line graph demonstrating that GCP-Mamba and BaseMamba peak VRAM usage scales linearly with gene count, whereas GCN and Transformer scale super-linearly, exceeding 14GB and 80GB at 5000 genes.} Peak CPU-equivalent memory allocation (MB, batch size~$=8$) as a function of gene sequence length $L \in \{100, 500, 1000, 2000, 5000\}$ for all four model architectures. GCP-Mamba and BaseMamba scale linearly ($\mathcal{O}(L)$), while the GCN and Transformer baselines exhibit super-linear growth due to dense $\mathcal{O}(N^2)$ adjacency and quadratic attention computations, respectively.}
 \label{fig:memory}
 \end{figure}
@@ -192,12 +192,12 @@ Figure~\ref{fig:memory} empirically validates the central computational claim of
 
 \subsection{10-Fold Zero-Shot Condition-Level Ablation}
 
-\begin{figure}[!htbp]
+\begin{figure*}[!htbp]
 \centering
-\includegraphics[width=\columnwidth]{benchmarking_results.png}
+\includegraphics[width=\textwidth]{benchmarking_results.png}
 \caption{\textbf{Alt Text: Bar chart showing GCP-Mamba achieving a lower (better) MSE than BaseMamba across 10 cross-validation folds.} 10-fold zero-shot condition-level ablation. GCP-Mamba (w/ $\mathbf{M}_\Delta$) vs.\ BaseMamba (w/o $\mathbf{M}_\Delta$) evaluated on the Norman 2019 K562 dataset, 5{,}000-gene panel. Error bars represent $\pm1$ standard deviation of MSE across the 10 condition-level folds.}
 \label{fig:ablation}
-\end{figure}
+\end{figure*}
 
 \begin{table*}[!htbp]
 \centering
@@ -222,23 +222,23 @@ The baseline evaluation includes the Condition Mean and an Additive formulation 
 
 \subsection{Biological Case Study: GO-Topology Driven State Retention}
 
-\begin{figure}[!htbp]
+\begin{figure*}[!htbp]
 \centering
-\includegraphics[width=\columnwidth]{case_study_subgraph.png}
+\includegraphics[width=\textwidth]{case_study_subgraph.png}
 \caption{\textbf{Alt Text: Network visualizations of a proximal gene pair (dense connections) and a distal gene pair (sparse connections).} GO subgraph case study. Left: topologically proximal gene pair from the Norman 105-gene targeted set (GO distance $d=1$) — the dense local subgraph drives high $\mathbf{M}_\Delta$ values, amplifying SSM state retention. Right: topologically distal gene pair ($d \geq 4$) — sparse connectivity yields lower $\mathbf{M}_\Delta$, allowing faster state decay. Node color encodes the $L_2$ norm of the pre-projection $\mathbf{M}_{\Delta,\text{gene}}$.}
 \label{fig:case}
-\end{figure}
+\end{figure*}
 
 Figure~\ref{fig:case} presents a concrete biological case study of the conditioning tensor. To move beyond anecdotal examples, we systematically evaluated the relationship between the GO graph topology and the learned state retention. Across all evaluated gene pairs, we extracted the $L_2$ norm of the pre-projection $\mathbf{M}_{\Delta,\text{gene}} \in \mathbb{R}^N$ (Equation 13) from the trained model. We observed a consistent inverse correlation between the extracted $\mathbf{M}_{\Delta,\text{gene}}$ magnitude and the GO shortest-path distance $d$, demonstrating that the architecture systematically associates topologically proximal co-regulated genes with higher state retention. This mechanism provides the critical pathway-awareness that standard sequence models lack.
 
 \subsection{Epistatic Synergy Recovery}
 
-\begin{figure}[!htbp]
+\begin{figure*}[!htbp]
 \centering
-\includegraphics[width=\columnwidth]{epistatic_interactions.png}
+\includegraphics[width=\textwidth]{epistatic_interactions.png}
 \caption{\textbf{Alt Text: Scatter plot and hexbin plot showing a weak but statistically distinct positive correlation between predicted and true expression changes.} Epistatic synergy recovery (zero-shot conditions, epistatically active cells only, $|\Delta Z| > 0.3$ in $\geq 10$ genes). Left: scatter of predicted vs.\ true $\Delta y$ with $y=x$ reference. Right: hexbin density distribution. Pearson $r \approx 0.15$, $p < 10^{-4}$.}
 \label{fig:scatter}
-\end{figure}
+\end{figure*}
 
 Figure~\ref{fig:scatter} demonstrates the zero-shot scatter of GCP-Mamba predicted versus true empirical expression, filtered to epistatically active cells to remove the zero-inflation from control cells. The model successfully tracks the sign and relative magnitude of differential expression changes, with a Pearson $r \approx 0.15$ that, while modest, is statistically distinct from the random baseline ($p < 10^{-4}$) given the large number of cell--gene pairs evaluated.
 
