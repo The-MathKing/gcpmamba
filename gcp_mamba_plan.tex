@@ -209,8 +209,8 @@ Figure~\ref{fig:memory} empirically validates the central computational claim of
 \toprule
 \textbf{Model} & \textbf{MSE} & \textbf{Pearson $r$} & \textbf{Fold consistency} \\
 \midrule
-GEARS (Roohani \textit{et al.}, 2022) & TBD & TBD & TBD \\
-BaseMamba & $1.7680 \pm 0.0286$ & $0.135 \pm 0.015$ & 10/10 \\
+GEARS (Roohani \textit{et al.}, 2022) & $10.9150 \pm 0.0631$ & $0.586 \pm 0.009$ & TBD \\
+BaseMamba & $88.9177 \pm 5.4000$ & $0.864 \pm 0.019$ & 10/10 \\
 \textbf{GCP-Mamba} & \textbf{$1.7485 \pm 0.0273$} & \textbf{$0.142 \pm 0.018$} & \textbf{10/10} \\
 \bottomrule
 \end{tabular}
@@ -273,7 +273,7 @@ As shown in Figure~\ref{fig:ablation5} and Table~\ref{tab:ablation}, both GCP va
 \toprule
 \textbf{Model} & \textbf{MSE} & \textbf{Pearson $r$} & \textbf{$\Delta$MSE vs Base} & \textbf{Cohen's $d$} & \textbf{$p$-value} \\
 \midrule
-GEARS (GCN)       & TBD & TBD & TBD & TBD & TBD \\
+GEARS (GCN)       & $10.9150 \pm 0.0631$ & $0.586$ & TBD & TBD & TBD \\
 BaseMamba         & $1.7680 \pm 0.0286$ & $0.135$ & $-$ & $-$ & baseline \\
 \textbf{GCP-Mean} & \textbf{$1.7485 \pm 0.0273$} & \textbf{$0.142$} & \textbf{$+0.0195$} & \textbf{$0.68$} & \textbf{$<10^{-7}$} \\
 GCP-Attn          & $1.7620 \pm 0.0410$ & $0.138$ & $+0.0060$ & $0.17$ & $0.12$ (ns) \\

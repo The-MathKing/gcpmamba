@@ -23,6 +23,11 @@ def compute_correlation(mdelta_norms, distances):
     print(f"p-value:   {p:.2e}")
     print("=======================================")
     
+    import json
+    with open('correlation_results.json', 'w') as f:
+        json.dump({'pearson': float(r), 'p_value': float(p)}, f, indent=2)
+    print("Saved correlation_results.json")
+    
     return r, p
 
 if __name__ == "__main__":

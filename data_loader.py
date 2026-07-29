@@ -54,13 +54,9 @@ class DataEngine:
         cov_matrix = np.corrcoef(X_base.T)
         cov_matrix = np.nan_to_num(cov_matrix)
         adj_matrix = (np.abs(cov_matrix) > 0.3).astype(float)
-        G = nx.from_numpy_array(adj_matrix)
-        
-        length_dict = dict(nx.all_pairs_shortest_path_length(G))
-        D = np.zeros((self.top_genes, self.top_genes))
-        for i in range(self.top_genes):
-            for j in range(self.top_genes):
-                D[i, j] = length_dict.get(i, {}).get(j, 10)
+        from scipy.sparse.csgraph import shortest_path
+        D = shortest_path(adj_matrix, method='auto', unweighted=True)
+        D[np.isinf(D)] = 10
         self.D = torch.tensor(D, dtype=torch.float32)
         print("Structural graph extracted from empirical covariance.")
 

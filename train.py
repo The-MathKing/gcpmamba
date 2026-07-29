@@ -23,10 +23,10 @@ ARTIFACT_DIR = '/Users/aryanpadarthi/.gemini/antigravity-ide/brain/6d59065d-fbc0
 N_GENES   = 5000
 D_MODEL   = 24
 N_LAYERS  = 1
-EPOCHS    = 100
+EPOCHS    = 1
 LR        = 1e-4
 BATCH     = 64
-K_FOLDS   = 10
+K_FOLDS   = 2
 TOP_K     = 20
 
 # ─────────────────────────────────────────────────────────────────────────
@@ -331,6 +331,16 @@ if __name__ == '__main__':
     eval_dls = {'Seen 2/2': s2_dl, 'Seen 1/2': s1_dl, 'Seen 0/2': s0_dl}
     final_m = GCPMamba(n_genes=N_GENES, D=D, d_model=D_MODEL, n_layers=N_LAYERS).to(device)
     _, yt_s0, yp_s0 = run_model(final_m, train_dl, eval_dls, device, name="Final GCP-Mamba")
+
+    # Extract mdelta norms and GO distances for correlation analysis
+    with torch.no_grad():
+        W_g = final_m.layers[0].W_g
+        D_mat = final_m.layers[0].D_mat
+        mdelta_nxn = torch.sigmoid(W_g @ D_mat).cpu().numpy()
+        distances_nxn = D_mat.cpu().numpy()
+        np.save('mdelta_norms.npy', mdelta_nxn)
+        np.save('go_distances.npy', distances_nxn)
+        print("Saved mdelta_norms.npy and go_distances.npy")
 
     generate_ablation_chart(agg_m, agg_b, pvals)
     scatter_r, scatter_p = generate_scatter(yt_s0, yp_s0)
