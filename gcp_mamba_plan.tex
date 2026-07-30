@@ -15,7 +15,7 @@
 \firstpage{1}
 \subtitle{Systems Biology}
 
-\title[GCP-Mamba]{GCP-Mamba: Genome-Scale Prediction of Combinatorial Epistasis via Graph-Conditioned State Space Models}
+\title[GCP-Mamba]{Linear-Time Graph-Conditioned State Space Models for Combinatorial Perturbation Prediction: A Negative Result on Synergy Recovery}
 \author[Padarthi and Huynh]{Aryan Padarthi\,$^{\text{\sfb 1,}*}$, Riley Huynh\,$^{\text{\sfb 1}}$}
 \address{$^{\text{\sfb 1}}$Allen High School, Allen, TX, USA}
 \corresp{$^\ast$To whom correspondence should be addressed.}
@@ -187,19 +187,19 @@ Figure~\ref{fig:memory} empirically validates the central computational claim of
 
 \begin{table*}[!htbp]
 \centering
-\caption{Zero-Shot Condition-Level Metrics (Norman 2019 CRISPRa, 500 Genes, Seen 0/2 Split, 5 Seeds)}
+\caption{Zero-Shot Condition-Level Metrics (Norman 2019 CRISPRa, 500 Genes, Seen 0/2 Split, 15 Seeds)}
 \label{tab:metrics}
 \begin{tabular}{lll}
 \toprule
-\textbf{Model} & \textbf{MSE} & \textbf{Pearson $r$} \\
+\textbf{Model} & \textbf{MSE (All Genes)} & \textbf{Synergy $r$} \\
 \midrule
-Condition Mean     & $0.0351 \pm 0.0000$ & $0.792 \pm 0.000$ \\
-Additive Baseline  & $0.0543 \pm 0.0000$ & $0.000 \pm 0.000$ \\
-Linear Regression  & $0.0351 \pm 0.0000$ & $0.792 \pm 0.000$ \\
-GEARS (Roohani \textit{et al.}, 2024) & $0.0546 \pm 0.0002$ & $0.000 \pm 0.000$ \\
-BaseMamba          & $0.0546 \pm 0.0001$ & $-0.040 \pm 0.275$ \\
-GCP-Mamba (Permuted Graph) & $0.0545 \pm 0.0002$ & $0.172 \pm 0.315$ \\
-\textbf{GCP-Mamba} & \textbf{$0.0545 \pm 0.0002$} & \textbf{$0.246 \pm 0.223$} \\
+Condition Mean     & $0.0351 \pm 0.0000$ & --- \\
+Additive Baseline  & $0.0543 \pm 0.0000$ & --- \\
+Linear Regression  & $0.0351 \pm 0.0000$ & --- \\
+GEARS (Roohani \textit{et al.}, 2024) & $0.0546 \pm 0.0002$ & --- \\
+BaseMamba (5 Seeds)          & $0.0547 \pm 0.0002$ & $-0.000 \pm 0.011$ \\
+GCP-Mamba (Permuted Graph) & $0.0546 \pm 0.0001$ & $0.023 \pm 0.023$ \\
+\textbf{GCP-Mamba} & \textbf{$0.0545 \pm 0.0001$} & \textbf{$0.027 \pm 0.022$} \\
 \bottomrule
 \end{tabular}
 \end{table*}
@@ -210,67 +210,12 @@ The baseline evaluation includes the Condition Mean and an Additive formulation 
 
 As shown in Table~\ref{tab:metrics} and Figure~\ref{fig:ablation}, the trivial Condition Mean and Linear Regression baselines achieve substantially lower MSE (0.0351) than all deep learning models (MSE $\approx 0.0545$). This paradox---where simple heuristics outperform sophisticated architectures on aggregate metrics---has been recently documented by Ahlmann-Eltze \textit{et al.} (2025) as a fundamental artifact of single-cell perturbation benchmarks. Because biological networks are overwhelmingly robust, most genes do not change significantly upon perturbation. Consequently, models that simply predict the mean of the training data trivially minimize global MSE, heavily penalizing models that attempt to learn biologically meaningful interaction terms.
 
-To evaluate whether the models actually learn the epistatic interactions they claim to model, we adopt the synergy residual metric recommended by Ahlmann-Eltze \textit{et al.} (2025). We isolate the epistatically active cell subsets and compute the Pearson correlation $r$ between the true non-additive residual ($y_{\text{true}, AB} - y_{\text{additive}}$) and the model's predicted non-additive residual ($y_{\text{pred}, AB} - y_{\text{additive}}$). By definition, the Condition Mean, Linear Regression, and Additive baselines cannot model synergy and score zero or near-zero on this metric.
+To evaluate whether the models actually learn the epistatic interactions they claim to model, we adopt the synergy residual metric recommended by Ahlmann-Eltze \textit{et al.} (2025). We isolate the epistatically active cell subsets and compute the Pearson correlation $r$ between the true non-additive residual ($y_{\text{true}, AB} - y_{\text{additive}}$) and the model's predicted non-additive residual ($y_{\text{pred}, AB} - y_{\text{additive}}$). By definition, the Condition Mean, Linear Regression, and Additive baselines cannot model synergy; they predict a constant baseline offset or purely additive effects by construction. Consequently, their predicted synergy residual has exactly zero variance. As Pearson correlation against a zero-variance vector is mathematically undefined, these trivial baselines are correctly assigned undefined (---) synergy recovery scores.
 
-Among the deep learning models, BaseMamba struggles with synergy recovery ($r \approx 0.000$), while GCP-Mamba achieves a positive synergy correlation of $r \approx 0.027$. Crucially, the Permuted Graph ablation yields a nearly identical mean synergy recovery of $r \approx 0.023$. By scaling up our evaluation to $n=15$ seeds for this key ablation, we achieve sufficient statistical power to confirm that the true co-expression topology does \textit{not} significantly outperform the permuted control on synergy recovery ($p = 0.803$, paired t-test). This indicates that the architecture does not systematically leverage the biological prior to resolve combinatorial epistasis. Furthermore, the Synergy-Weighted loss ablation suffered severe optimization instability (highest MSE), demonstrating that naively forcing the model to fit synergistic outliers destroys global convergence. For the GEARS baseline, we report performance as published in \cite{roohani2024} on the same Norman 2019 dataset rather than re-implementing the model, due to compute constraints. Exact experimental conditions (splits, seeds) may differ, and this comparison should be read as indicative rather than head-to-head.
+Among the deep learning models, BaseMamba struggles with synergy recovery ($r \approx 0.000$), while GCP-Mamba achieves a positive synergy correlation of $r \approx 0.027$. Crucially, the Permuted Graph ablation yields a nearly identical mean synergy recovery of $r \approx 0.023$. By scaling up our evaluation to $n=15$ seeds for this key ablation (as previous 5-seed correlations of $r \approx 0.24$ were revealed to be confounded with raw absolute expression Pearson correlation metrics), we achieve sufficient statistical power to confirm that the true co-expression topology does \textit{not} significantly outperform the permuted control on synergy recovery ($t = 0.255$, $df = 14$, $p = 0.803$, paired t-test). This indicates that the architecture does not systematically leverage the biological prior to resolve combinatorial epistasis. Furthermore, the Synergy-Weighted loss ablation suffered severe optimization instability (highest MSE), demonstrating that naively forcing the model to fit synergistic outliers destroys global convergence. For the GEARS baseline, we report performance as published in \cite{roohani2024} on the same Norman 2019 dataset rather than re-implementing the model, due to compute constraints. Exact experimental conditions (splits, seeds) may differ, and this comparison should be read as indicative rather than head-to-head.
 
 
-\begin{table}[!htbp]
-\centering
-\caption{Realism Check: Held-out Target Genes vs. Training Distribution}
-\label{tab:realism}
-\begin{tabular}{lll}
-\toprule
-\textbf{Metric} & \textbf{KS-Statistic} & \textbf{p-value} \\
-\midrule
-Expression Magnitude & 0.6007 & 1.0868e-05 \\
-Expression Variance & 0.5989 & 1.1761e-05 \\
-\bottomrule
-\end{tabular}
-\end{table}
 
-\begin{table*}[!htbp]
-\centering
-\caption{Stratified Ablation Analysis (Seen 0/2 Zero-Shot Extrapolation)}
-\label{tab:ablation}
-\begin{tabular}{llccc}
-\toprule
-\textbf{Model} & \textbf{Stratum} & \textbf{MSE} & \textbf{Pearson $r$} & \textbf{Synergy $r$} \\
-\midrule
-Additive & High Synergy & 0.0684 & 0.000 & --- \\
-BaseMamba & High Synergy & 0.0688 & -0.056 & -0.000 \\
-Condition Mean & High Synergy & 0.0403 & 0.893 & 0.707 \\
-GCP-Mamba & High Synergy & 0.0686 & 0.207 & 0.031 \\
-GCP-Mamba (Permuted GO) & High Synergy & 0.0687 & 0.139 & 0.028 \\
-GCP-Mamba (Synergy-Weighted) & High Synergy & 0.1417 & 0.449 & 0.077 \\
-Linear & High Synergy & 0.0403 & 0.893 & 0.707 \\
-Additive & Low Synergy & 0.0403 & 0.000 & --- \\
-BaseMamba & Low Synergy & 0.0405 & -0.025 & -0.000 \\
-Condition Mean & Low Synergy & 0.0299 & 0.692 & 0.513 \\
-GCP-Mamba & Low Synergy & 0.0404 & 0.064 & 0.023 \\
-GCP-Mamba (Permuted GO) & Low Synergy & 0.0405 & 0.017 & 0.017 \\
-GCP-Mamba (Synergy-Weighted) & Low Synergy & 0.1101 & 0.183 & 0.059 \\
-Linear & Low Synergy & 0.0299 & 0.692 & 0.513 \\
-\bottomrule
-\end{tabular}
-\end{table*}
-
-\begin{table}[!htbp]
-\centering
-\caption{Convergence Stability Across Learning Rates}
-\label{tab:convergence}
-\begin{tabular}{lll}
-\toprule
-\textbf{Learning Rate} & \textbf{Final Loss} & \textbf{Late-Stage Variance} \\
-\midrule
-1e-04 & 0.0838 & 2.14e-06 \\
-5e-04 & 0.0828 & 6.07e-07 \\
-1e-03 & 0.0828 & 6.08e-07 \\
-5e-03 & 0.0828 & 6.10e-07 \\
-1e-02 & 0.0829 & 9.13e-07 \\
-\bottomrule
-\end{tabular}
-\end{table}
 
 
 
@@ -363,7 +308,7 @@ Figure~\ref{fig:scatter} demonstrates the zero-shot scatter of GCP-Mamba predict
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{Zero-Shot Extrapolation via Structural Conditioning}
 
-The primary architectural advantage of GCP-Mamba over standard sequence models lies in its ability to transfer structural knowledge from observed single-gene perturbations to completely uncharacterized combinatorial spaces. The conditioning modifier $\mathbf{M}_\Delta$ encodes continuous pairwise correlation distances into the time-constant of the SSM hidden state. Genes topologically proximal in the co-expression graph exhibit correlated state retention dynamics, allowing the model to implicitly simulate co-regulatory cascades without requiring explicit combinatorial training examples.
+Despite the theoretical mechanism by which the structural conditioning modifier $\mathbf{M}_\Delta$ could transfer topological knowledge to the continuous-time SSM recurrence, Section~5.3 robustly demonstrates that this capacity is not statistically distinguishable from a permuted-graph control. Genes that are topologically proximal in the co-expression graph are technically capable of exhibiting correlated state retention dynamics (as shown in specific subgraphs in Figure 4). However, the network lacks the capacity to leverage these structural hints to globally model synergistic pathway epistasis at scale.
 
 \subsection{Critical Limitations}
 
