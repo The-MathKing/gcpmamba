@@ -25,9 +25,10 @@ class PseudobulkDataset(Dataset):
         return self.X[idx], self.y[idx], self.conditions[idx]
 
 class DataEngine:
-    def __init__(self, top_genes: int = 500, h5ad_path: str = 'data/norman/perturb_processed.h5ad'):
+    def __init__(self, top_genes: int = 500, h5ad_path: str = 'data/norman/perturb_processed.h5ad', splits_path: str = 'splits_manifest.json'):
         self.top_genes = top_genes
         self.h5ad_path = h5ad_path
+        self.splits_path = splits_path
         self.D = None
         self.X = None
         self.y = None
@@ -38,13 +39,14 @@ class DataEngine:
         self.seen2_loader = None
         self.seen1_loader = None
         self.seen0_loader = None
+        self.test_singles_loader = None
         
     def prepare_data(self):
         print(f"Loading {self.h5ad_path}...")
         adata = sc.read_h5ad(self.h5ad_path)
         
         # Load splits manifest
-        with open('splits_manifest.json', 'r') as f:
+        with open(self.splits_path, 'r') as f:
             manifest = json.load(f)
             
         train_singles = manifest['train_singles']
@@ -58,20 +60,25 @@ class DataEngine:
         train_mask = adata.obs['condition'].isin(['ctrl'] + train_singles)
         adata_train = adata[train_mask].copy()
         
+        print("Identifying HVGs...")
         sc.pp.filter_genes(adata_train, min_cells=3)
         sc.pp.normalize_total(adata_train, target_sum=1e4)
         sc.pp.log1p(adata_train)
         sc.pp.highly_variable_genes(adata_train, n_top_genes=self.top_genes, subset=True)
+        print("HVGs identified.")
         
         self.gene_names = adata_train.var_names.tolist()
         
         # Now apply the HVG filter and normalization to the FULL dataset
+        print("Subsetting to HVGs...")
         adata = adata[:, self.gene_names].copy()
         sc.pp.normalize_total(adata, target_sum=1e4)
         sc.pp.log1p(adata)
         
+        print("Converting to dense array...")
         X_base = adata.X.toarray() if hasattr(adata.X, "toarray") else np.array(adata.X)
         
+        print("Standardizing...")
         # Z-score standardize based on training data statistics
         X_train_base = X_base[train_mask]
         X_mean = X_train_base.mean(axis=0, keepdims=True)
@@ -80,20 +87,21 @@ class DataEngine:
         X_base_z = (X_base - X_mean) / X_std
         adata.X = X_base_z
         
+        print("Computing control means...")
         # Compute control mean for pseudobulking
         ctrl_mask = adata.obs['condition'] == 'ctrl'
         ctrl_mean = X_base_z[ctrl_mask].mean(axis=0)
         
         # Build dense, continuous topological graph D based on empirical covariance
         # This replaces the unweighted shortest-path topology with a smooth continuous prior
+        print("Computing continuous topological graph D...")
         cov_matrix = np.corrcoef(X_train_base.T)
         cov_matrix = np.nan_to_num(cov_matrix)
-        # Distance is inversely proportional to absolute correlation. 
-        # Range is [0, 1] where 0 is perfectly correlated, 1 is orthogonal
         D = 1.0 - np.abs(cov_matrix)
         self.D = torch.tensor(D, dtype=torch.float32)
         print("Continuous structural graph (1 - |corr|) extracted from empirical covariance.")
         
+        print("Calculating condition-level pseudobulks...")
         # Calculate condition-level pseudobulks for ALL conditions
         unique_conditions = adata.obs['condition'].unique()
         
@@ -143,6 +151,7 @@ class DataEngine:
         self.seen2_loader = create_loader(seen2_doubles)
         self.seen1_loader = create_loader(seen1_doubles)
         self.seen0_loader = create_loader(seen0_doubles)
+        self.test_singles_loader = create_loader(test_singles)
         
         print(f"Data Engine Ready!")
         print(f"Train batches: {len(self.train_loader)}")

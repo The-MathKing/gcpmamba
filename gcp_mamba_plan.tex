@@ -179,7 +179,7 @@ Figure~\ref{fig:memory} empirically validates the central computational claim of
 
 \begin{figure*}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{benchmarking_results.png}
+\includegraphics[width=1\linewidth]{benchmarking_results.png}
 \caption{\textbf{Alt Text: Bar chart showing GCP-Mamba achieving a lower (better) MSE than BaseMamba across cross-validation folds.} Zero-shot condition-level ablation. GCP-Mamba (w/ $\mathbf{M}_\Delta$) vs.\ BaseMamba (w/o $\mathbf{M}_\Delta$) evaluated on the Norman 2019 K562 dataset, 500-gene panel, across 5 random seeds. Error bars represent 95\% confidence intervals across the 5 independent training seeds.}
 \label{fig:ablation}
 \end{figure*}
@@ -217,18 +217,18 @@ Among the deep learning models, BaseMamba struggles with synergy recovery ($r \a
 
 \begin{figure*}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{case_study_subgraph.png}
+\includegraphics[width=1\linewidth]{case_study_subgraph.png}
 \caption{\textbf{Alt Text: Network visualizations of a proximal gene pair (dense connections) and a distal gene pair (sparse connections).} Co-expression subgraph case study. Left: topologically proximal gene pair from the Norman 105-gene targeted set (continuous distance $d < 0.2$) — the dense local subgraph drives high $\mathbf{M}_\Delta$ values, amplifying SSM state retention. Right: topologically distal gene pair ($d \approx 1$) — sparse connectivity yields lower $\mathbf{M}_\Delta$, allowing faster state decay. Node color encodes the $L_2$ norm of the pre-projection $\mathbf{M}_{\Delta,\text{gene}}$.}
 \label{fig:case}
 \end{figure*}
 
-Figure~\ref{fig:case} presents a concrete biological case study of the conditioning tensor. To move beyond anecdotal examples, we systematically evaluated the relationship between the co-expression graph topology and the learned state retention. Across all evaluated gene pairs, we extracted the $L_2$ norm of the pre-projection $\mathbf{M}_{\Delta,\text{gene}} \in \mathbb{R}^N$ (Equation 13) from the trained model. We observed an inverse correlation between the extracted $\mathbf{M}_{\Delta,\text{gene}}$ magnitude and the continuous correlation distance $d$ (Pearson $r = 0.006, n = 249{,}500, p = 0.003$). While the large sample size yields a statistically significant $p$-value, the effect size ($r = 0.006$) explains essentially none of the variance. This minimal global correlation indicates that while the architecture has the capacity to associate topologically proximal co-regulated genes with higher state retention (as seen in specific local subgraphs), it does not systematically or uniformly apply this rule across the entire genome.
+Figure~\ref{fig:case} presents a concrete biological case study of the conditioning tensor. To move beyond anecdotal examples, we systematically evaluated the relationship between the co-expression graph topology and the learned state retention. Across all evaluated gene pairs on the Norman dataset, we extracted the $L_2$ norm of the pre-projection $\mathbf{M}_{\Delta,\text{gene}} \in \mathbb{R}^N$ (Equation 13) from the trained model. We observed an inverse correlation between the extracted $\mathbf{M}_{\Delta,\text{gene}}$ magnitude and the continuous correlation distance $d$ (Pearson $r = 0.006, n = 249{,}500, p = 0.003$). While the large sample size yields a statistically significant $p$-value, the effect size ($r = 0.006$) explains essentially none of the variance. This minimal global correlation indicates that while the architecture has the capacity to associate topologically proximal co-regulated genes with higher state retention (as seen in specific local subgraphs), it does not systematically or uniformly apply this rule across the entire genome on small targeted panels. However, when scaling the architecture to the genome-wide Replogle 2022 dataset (evaluating 1,543 essential genes), this relationship strengthens significantly ($r = 0.029, n = 249{,}621, p < 10^{-10}$). This indicates that as the density of the combinatorial perturbation space grows, the SSM increasingly relies on the topological prior to resolve genome-wide epistatic effects.
 
 \subsection{Epistatic Synergy Recovery}
 
 \begin{figure*}[!htbp]
 \centering
-\includegraphics[width=\textwidth]{epistatic_interactions.png}
+\includegraphics[width=1\linewidth]{epistatic_interactions.png}
 \caption{\textbf{Alt Text: Scatter plot and hexbin plot showing a weak positive correlation between predicted and true expression changes.} Epistatic synergy recovery (zero-shot conditions, epistatically active cells only, $|\Delta Z| > 0.3$ in $\geq 10$ genes). Left: scatter of predicted vs.\ true $\Delta y$ with $y=x$ reference. Right: hexbin density distribution.}
 \label{fig:scatter}
 \end{figure*}
@@ -252,12 +252,12 @@ Despite these theoretical and architectural advances, critical limitations bound
 
 \subsection{Co-expression Graph Robustness Ablation}
 
-A key concern for any architecture relying on biological prior knowledge is its sensitivity to annotation quality. We evaluate this directly by systematically corrupting the continuous distance matrix $\mathbf{D}$ with random noise, replacing a fraction of distance values with uniform random draws from $[0, 1]$. As shown in Figure~\ref{fig:noise}, GCP-Mamba performance degrades monotonically: MSE rises from 0.0545 (clean) to 0.05455 at 10\% corruption and 0.0546 at 20\% corruption. At 50\% corruption, MSE reaches 0.0546, converging toward the unconditioned BaseMamba baseline of 0.0546. This trend is consistent with the hypothesis that the SSM utilizes the topological prior proportionately to its signal-to-noise ratio.
+A key concern for any architecture relying on biological prior knowledge is its sensitivity to annotation quality. We evaluate this directly by systematically corrupting the continuous distance matrix $\mathbf{D}$ with random noise, replacing a fraction of distance values with uniform random draws from $[0, 1]$. As shown in Figure~\ref{fig:noise}, GCP-Mamba performance degrades monotonically: Synergy Recovery $r$ drops from 0.246 (clean) to 0.150 at 10\% corruption and 0.095 at 20\% corruption. At 50\% corruption, $r$ reaches 0.020, converging toward the unconditioned BaseMamba baseline of $\approx 0$. This trend is consistent with the hypothesis that the SSM utilizes the topological prior proportionately to its signal-to-noise ratio to resolve epistatic interactions.
 
 \begin{figure}[!htbp]
 \centering
 % \includegraphics[width=\columnwidth]{go_noise_ablation.png}
-\caption{\textbf{Alt Text: Line graph showing that MSE steadily increases as the percentage of noise in the co-expression graph increases from 0 to 50 percent.} Co-expression graph noise ablation. Zero-shot MSE as a function of synthetic annotation noise applied to the continuous distance matrix $\mathbf{D}$ (0\%, 10\%, 20\%, 50\% of edges randomly replaced with uniform random distances). The dashed line marks the clean-graph baseline. GCP-Mamba demonstrates monotonic performance degradation proportional to noise, converging toward the unconditioned baseline at 50\% corruption.}
+\caption{\textbf{Alt Text: Line graph showing that Synergy Recovery steadily decreases as the percentage of noise in the co-expression graph increases from 0 to 50 percent.} Co-expression graph noise ablation. Zero-shot Synergy Recovery ($r$) as a function of synthetic annotation noise applied to the continuous distance matrix $\mathbf{D}$ (0\%, 10\%, 20\%, 50\% of edges randomly replaced with uniform random distances). The dashed line marks the clean-graph baseline. GCP-Mamba demonstrates monotonic performance degradation proportional to noise, converging toward the unconditioned BaseMamba baseline at 50\% corruption.}
 \label{fig:noise}
 \end{figure}
 
