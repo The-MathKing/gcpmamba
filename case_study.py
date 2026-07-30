@@ -114,36 +114,29 @@ def main():
     gene_names = load_gene_names()
     G = build_graph(D_np)
     
-    # Identify gene pairs with different topological distances for contrast
-    # Pair A: Topologically proximal (distance < 0.1)
-    # Pair B: Topologically distal (distance > 0.9)
-    pair_A = None
-    pair_B = None
+    # Pair A: Topologically proximal (minimum distance)
+    # Pair B: Topologically distal (maximum distance)
+    pair_A = (0, 1)
+    pair_B = (0, 1)
+    min_d = float('inf')
+    max_d = float('-inf')
     for i in range(N_GENES):
         for j in range(i+1, N_GENES):
             d = D_np[i, j]
-            if pair_A is None and d < 0.1:
+            if d < min_d:
+                min_d = d
                 pair_A = (i, j)
-            if pair_B is None and d > 0.9:
+            if d > max_d:
+                max_d = d
                 pair_B = (i, j)
-            if pair_A and pair_B:
-                break
-        if pair_A and pair_B:
-            break
-    
-    # Fallback if no pairs found
-    if pair_A is None:
-        pair_A = (0, 1)
-    if pair_B is None:
-        pair_B = (0, N_GENES - 1)
     
     name_A1 = gene_names[pair_A[0]] if pair_A[0] < len(gene_names) else f"Gene_{pair_A[0]}"
     name_A2 = gene_names[pair_A[1]] if pair_A[1] < len(gene_names) else f"Gene_{pair_A[1]}"
     name_B1 = gene_names[pair_B[0]] if pair_B[0] < len(gene_names) else f"Gene_{pair_B[0]}"
     name_B2 = gene_names[pair_B[1]] if pair_B[1] < len(gene_names) else f"Gene_{pair_B[1]}"
     
-    label_A = f"{name_A1}+{name_A2} (proximal, D={D_np[pair_A[0], pair_A[1]]:.0f})"
-    label_B = f"{name_B1}+{name_B2} (distal, D={D_np[pair_B[0], pair_B[1]]:.0f})"
+    label_A = f"{name_A1}+{name_A2} (proximal, D={D_np[pair_A[0], pair_A[1]]:.2f})"
+    label_B = f"{name_B1}+{name_B2} (distal, D={D_np[pair_B[0], pair_B[1]]:.2f})"
     
     print(f"Pair A (proximal): {label_A}")
     print(f"Pair B (distal):   {label_B}")

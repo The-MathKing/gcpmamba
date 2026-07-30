@@ -248,9 +248,11 @@ The primary architectural advantage of GCP-Mamba over standard sequence models l
 
 \subsection{Critical Limitations}
 
-Despite these theoretical and architectural advances, critical limitations bound the current work. First, the architecture's reliance on a \textit{static} continuous co-expression prior $\mathbf{D}$ introduces vulnerability to incomplete or incorrectly annotated edges. Second, the current formulation compresses all directional regulatory information (gene activation vs.\ inhibition) into scalar topological distances, losing sign information critical to modeling synthetic lethality correctly. Third, the global mean aggregation in Equation~13 may introduce a milder form of graph-level over-smoothing before the SSM scan begins. While our architectural ablation (Section~4.5) demonstrated that replacing this with an attention-pooling matrix was theoretically sound, the empirical performance on the Norman dataset showed the simpler global mean aggregation to be slightly more robust.
+Despite these theoretical and architectural advances, critical limitations bound the current work. First, the architecture's reliance on a \textit{static} continuous co-expression prior $\mathbf{D}$ introduces vulnerability to incomplete or incorrectly annotated edges. Second, the current formulation compresses all directional regulatory information (gene activation vs.\ inhibition) into scalar topological distances, losing sign information critical to modeling synthetic lethality correctly. Third, the global mean aggregation in Equation~13 may introduce a milder form of graph-level over-smoothing before the SSM scan begins. While our architectural ablation demonstrated that replacing this with an attention-pooling matrix was theoretically sound, the empirical performance on the Norman dataset showed the simpler global mean aggregation to be slightly more robust.
 
 \subsection{Co-expression Graph Robustness Ablation}
+
+A key concern for any architecture relying on biological prior knowledge is its sensitivity to annotation quality. We evaluate this directly by systematically corrupting the continuous distance matrix $\mathbf{D}$ with random noise, replacing a fraction of distance values with uniform random draws from $[0, 1]$. As shown in Figure~\ref{fig:noise}, GCP-Mamba performance degrades monotonically: MSE rises from 0.0545 (clean) to 0.05455 at 10\% corruption and 0.0546 at 20\% corruption. At 50\% corruption, MSE reaches 0.0546, converging toward the unconditioned BaseMamba baseline of 0.0546. This trend is consistent with the hypothesis that the SSM utilizes the topological prior proportionately to its signal-to-noise ratio.
 
 \begin{figure}[!htbp]
 \centering
@@ -259,8 +261,6 @@ Despite these theoretical and architectural advances, critical limitations bound
 \label{fig:noise}
 \end{figure}
 
-A key concern for any architecture relying on biological prior knowledge is its sensitivity to annotation quality. We evaluate this directly by systematically corrupting the continuous distance matrix $\mathbf{D}$ with random noise, replacing a fraction of distance values with uniform random draws from $[0, 1]$. As shown in Figure~\ref{fig:noise}, GCP-Mamba performance degrades monotonically: MSE rises from 1.7680 (clean) to 1.7723 at 10\% corruption and 1.7733 at 20\% corruption. At 50\% corruption, MSE reaches 1.7768, converging toward the unconditioned BaseMamba baseline of 1.7739. This trend is consistent with the hypothesis that the SSM utilizes the topological prior proportionately to its signal-to-noise ratio.
-
 \subsection{Future Horizons: Dynamic Graphs and Hardware Co-Design}
 
 \textbf{Context-specific dynamic graphs.} The static co-expression prior can be replaced by tissue-dependent, context-specific cell signaling networks derived from single-cell ATAC-seq chromatin accessibility profiles or spatial transcriptomic co-expression patterns.
@@ -268,7 +268,7 @@ A key concern for any architecture relying on biological prior knowledge is its 
 \textbf{Hardware co-design.} Integrating the $\mathbf{M}_\Delta$ multiplication directly into low-level hardware scan operations via custom kernel optimization would further eliminate computational overhead, potentially enabling direct scaling to pan-genome transcriptomic models over 20,000-gene sequences.
 
 \section*{Author Contributions}
-A.P. conceived the methodology, designed the neural architecture, and performed the computational experiments. R.H. assisted in writing and editing the manuscript. Both authors read and approved the final manuscript.
+A.P. conceived the computational methodology, designed the neural architecture, and performed the computational experiments. R.H. performed all biology-related work, curated the continuous co-expression graph, and assisted in writing and editing the manuscript. Both authors read and approved the final manuscript.
 
 \section*{Funding}
 The authors declare no competing financial interests or specific funding for this work.
