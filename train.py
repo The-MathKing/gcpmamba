@@ -129,7 +129,7 @@ def run_training_pipeline():
     r_val, p_val = pearsonr(d_flat[valid], m_flat[valid])
     print(f"M_delta vs Distance: r = {r_val:.3f}, n = {valid.sum()}, p = {p_val:.4e}")
     with open("m_delta_stats.json", "w") as f:
-        json.dump({"r": r_val, "n": int(valid.sum()), "p": p_val}, f)
+        json.dump({"r": float(r_val), "n": int(valid.sum()), "p": float(p_val)}, f)
 
 if __name__ == "__main__":
     run_training_pipeline()

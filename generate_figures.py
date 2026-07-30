@@ -6,6 +6,15 @@ from scipy.stats import pearsonr
 import json
 import scipy.stats as st
 
+plt.rcParams.update({
+    'font.size': 20, 
+    'axes.titlesize': 24, 
+    'axes.labelsize': 20, 
+    'xtick.labelsize': 18, 
+    'ytick.labelsize': 18, 
+    'legend.fontsize': 18
+})
+
 def calc_metrics_per_condition(df, df_additive, top_k=20):
     # df has columns: Split, Condition, Model, Seed, Gene_Idx, True_Value, Pred_Value
     results = []

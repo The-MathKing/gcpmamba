@@ -8,8 +8,17 @@ by GCP-Mamba for those specific gene dimensions.
 import numpy as np
 import networkx as nx
 import matplotlib
-matplotlib.use('Agg')
+import scipy.stats as st
 import matplotlib.pyplot as plt
+
+plt.rcParams.update({
+    'font.size': 20, 
+    'axes.titlesize': 24, 
+    'axes.labelsize': 20, 
+    'xtick.labelsize': 18, 
+    'ytick.labelsize': 18, 
+    'legend.fontsize': 18
+})
 import matplotlib.patches as mpatches
 import torch
 import scanpy as sc
@@ -98,7 +107,7 @@ def trace_mdelta(model, engine, gene_names, pair_indices):
 
 def main():
     engine = DataEngine(top_genes=N_GENES)
-    engine.generate_empirical_structured_data()
+    engine.prepare_data()
     D = engine.D
     D_np = D.numpy()
     
@@ -106,16 +115,16 @@ def main():
     G = build_graph(D_np)
     
     # Identify gene pairs with different topological distances for contrast
-    # Pair A: Topologically proximal (distance = 1, direct neighbors)
-    # Pair B: Topologically distal (distance = 3+, different pathways)
+    # Pair A: Topologically proximal (distance < 0.1)
+    # Pair B: Topologically distal (distance > 0.9)
     pair_A = None
     pair_B = None
     for i in range(N_GENES):
         for j in range(i+1, N_GENES):
             d = D_np[i, j]
-            if pair_A is None and d == 1:
+            if pair_A is None and d < 0.1:
                 pair_A = (i, j)
-            if pair_B is None and d >= 4:
+            if pair_B is None and d > 0.9:
                 pair_B = (i, j)
             if pair_A and pair_B:
                 break

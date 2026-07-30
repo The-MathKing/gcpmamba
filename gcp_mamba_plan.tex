@@ -152,26 +152,26 @@ The step-size $\Delta_{\text{graph}}$ is then used in the graph-modified ZOH rec
 
 \subsection{Hyperparameter Configuration}
 
-Model architecture and training hyperparameters were optimized to ensure rigorous model convergence and stable gradient descent. All models were trained for 100 epochs using the AdamW optimizer with a conservative learning rate of $1\times10^{-4}$ and weight decay of $1\times10^{-4}$, utilizing a batch size of 256. 
+All Mamba-based models evaluate $N = 500$ top highly variable genes with state dimension $N_{\text{state}} = 16$ and embedding dimension $d_{\text{model}} = 32$. Training is conducted using the AdamW optimizer with a learning rate of $1 \times 10^{-4}$ and weight decay of $1 \times 10^{-4}$ for 100 epochs (batch size 256).
 
-\begin{figure}[!htbp]
+\begin{figure*}[!htbp]
 \centering
-\includegraphics[width=\columnwidth]{training_curve.png}
-\caption{\textbf{Alt Text: Line graph showing training loss smoothly decreasing over 50 epochs for all models.} Empirical training convergence. Mean squared error (MSE) loss evaluated over training epochs, averaged across 5 random initialization seeds. All models exhibit smooth and full convergence within the allocated training schedule.}
+\includegraphics[width=\textwidth]{training_curve.png}
+\caption{\textbf{Alt Text: Line graph showing training loss decreasing rapidly and plateauing for three models over 100 epochs.} Cross-validation training curves across 5 random seeds (solid line: mean, shaded region: 95\% CI). GCP-Mamba converges equivalently to the BaseMamba and Permuted Graph controls, confirming that biological prior conditioning does not introduce optimization instability over 100 epochs.}
 \label{fig:training}
-\end{figure}
+\end{figure*}
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Empirical Evaluation and Ablation Results}
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{Memory and Compute Scaling Analysis}
 
-\begin{figure}[!htbp]
+\begin{figure*}[!htbp]
 \centering
-\includegraphics[width=\columnwidth]{memory_scaling.png}
+\includegraphics[width=\textwidth]{memory_scaling.png}
 \caption{\textbf{Alt Text: Line graph demonstrating that GCP-Mamba and BaseMamba peak VRAM usage scales linearly with gene count, whereas GCN and Transformer scale super-linearly, exceeding 14GB and 80GB at 5000 genes.} Peak CPU-equivalent memory allocation (MB, batch size~$=8$) as a function of gene sequence length $L \in \{100, 500, 1000, 2000, 5000\}$ for all four model architectures. GCP-Mamba and BaseMamba scale linearly ($\mathcal{O}(L)$), while the GCN and Transformer baselines exhibit super-linear growth due to dense $\mathcal{O}(N^2)$ adjacency and quadratic attention computations, respectively.}
 \label{fig:memory}
-\end{figure}
+\end{figure*}
 
 Figure~\ref{fig:memory} empirically validates the central computational claim of GCP-Mamba. Peak memory allocation was measured by instantiating each model at a fixed batch size of 8 and sweeping gene panel sizes $L \in \{100, 500, 1000, 2000, 5000\}$. The SSM-based models (GCP-Mamba and BaseMamba) exhibit strictly linear growth from 0.7\,MB to 33.0\,MB, confirming the $\mathcal{O}(L)$ theoretical analysis from Section~2.2. The GCN (FaithfulGEARS proxy) exhibits super-linear growth driven by its $\mathcal{O}(N^2)$ dense adjacency matrix operations, while the Transformer (FaithfulscGPT proxy) exhibits quadratic growth due to self-attention computations. Both baselines breach practical VRAM limits at whole-genome scales ($L>5{,}000$), whereas the GCP-Mamba memory footprint remains stable, demonstrating a decisive practical advantage for genome-scale transcriptomic modeling.
 

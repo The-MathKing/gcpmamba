@@ -2,6 +2,13 @@ import torch
 import torch.nn as nn
 import numpy as np
 
+try:
+    from mamba_ssm import Mamba
+    MAMBA_AVAILABLE = True
+except ImportError:
+    MAMBA_AVAILABLE = False
+    print("Warning: mamba_ssm not found. Falling back to PurePyTorchSSM simulation (CPU only, O(N^2) memory).")
+
 
 class PurePyTorchSSM(nn.Module):
     """
@@ -82,15 +89,23 @@ class MambaBlock(nn.Module):
     """BaseMamba: pure sequence model, no graph conditioning (ablation control)."""
     def __init__(self, d_model: int, d_state: int = 16):
         super().__init__()
-        self.norm     = nn.LayerNorm(d_model)
-        self.ssm      = PurePyTorchSSM(d_model=d_model, d_state=d_state)
-        self.out_proj = nn.Linear(d_model, d_model)
-        nn.init.zeros_(self.out_proj.bias)
+        self.norm = nn.LayerNorm(d_model)
+        if MAMBA_AVAILABLE and torch.cuda.is_available():
+            self.mamba = Mamba(d_model=d_model, d_state=d_state, d_conv=4, expand=2)
+            self.use_cuda = True
+        else:
+            self.ssm = PurePyTorchSSM(d_model=d_model, d_state=d_state)
+            self.out_proj = nn.Linear(d_model, d_model)
+            nn.init.zeros_(self.out_proj.bias)
+            self.use_cuda = False
 
     def forward(self, x):
         res = x
-        x = self.ssm(self.norm(x))
-        return self.out_proj(x) + res
+        x_norm = self.norm(x)
+        if self.use_cuda:
+            return self.mamba(x_norm) + res
+        else:
+            return self.out_proj(self.ssm(x_norm)) + res
 
 
 class GraphConditionedMambaBlock(nn.Module):
@@ -110,10 +125,15 @@ class GraphConditionedMambaBlock(nn.Module):
         nn.init.xavier_uniform_(self.delta_proj.weight)
         nn.init.xavier_uniform_(self.A_proj.weight)
 
-        self.norm     = nn.LayerNorm(d_model)
-        self.ssm      = PurePyTorchSSM(d_model=d_model, d_state=d_state)
-        self.out_proj = nn.Linear(d_model, d_model)
-        nn.init.zeros_(self.out_proj.bias)
+        self.norm = nn.LayerNorm(d_model)
+        if MAMBA_AVAILABLE and torch.cuda.is_available():
+            self.mamba = Mamba(d_model=d_model, d_state=d_state, d_conv=4, expand=2)
+            self.use_cuda = True
+        else:
+            self.ssm = PurePyTorchSSM(d_model=d_model, d_state=d_state)
+            self.out_proj = nn.Linear(d_model, d_model)
+            nn.init.zeros_(self.out_proj.bias)
+            self.use_cuda = False
 
     def precompute_graph_modifiers(self):
         """
@@ -129,10 +149,29 @@ class GraphConditionedMambaBlock(nn.Module):
 
     def forward(self, x):
         res = x
-        x = self.norm(x)
-        delta_mod, A_mod = self.precompute_graph_modifiers()
-        x = self.ssm(x, delta_mod=delta_mod, A_mod=A_mod)
-        return self.out_proj(x) + res
+        x_norm = self.norm(x)
+        M_delta, A_mod = self.precompute_graph_modifiers()
+
+        if self.use_cuda:
+            orig_dt_weight = self.mamba.dt_proj.weight
+            orig_dt_bias = self.mamba.dt_proj.bias
+            orig_A_log = self.mamba.A_log
+            
+            self.mamba.dt_proj.__dict__['weight'] = orig_dt_weight * M_delta.unsqueeze(1)
+            if orig_dt_bias is not None:
+                self.mamba.dt_proj.__dict__['bias'] = orig_dt_bias * M_delta
+            self.mamba.__dict__['A_log'] = orig_A_log + torch.log(A_mod.unsqueeze(-1))
+            
+            out = self.mamba(x_norm)
+            
+            del self.mamba.dt_proj.__dict__['weight']
+            if orig_dt_bias is not None:
+                del self.mamba.dt_proj.__dict__['bias']
+            del self.mamba.__dict__['A_log']
+            
+            return out + res
+        else:
+            return self.out_proj(self.ssm(x_norm, delta_mod=M_delta, A_mod=A_mod)) + res
 
 
 # ──────────────────────────────────────────────────

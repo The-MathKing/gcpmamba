@@ -3,6 +3,15 @@ import matplotlib.pyplot as plt
 import seaborn as sns
 import numpy as np
 
+plt.rcParams.update({
+    'font.size': 20, 
+    'axes.titlesize': 24, 
+    'axes.labelsize': 20, 
+    'xtick.labelsize': 18, 
+    'ytick.labelsize': 18, 
+    'legend.fontsize': 18
+})
+
 sns.set_theme(style="whitegrid", font_scale=1.1)
 
 with open("training_losses.json", "r") as f:
