@@ -17,16 +17,21 @@ D_MODEL   = 32
 N_LAYERS  = 1
 EPOCHS    = 50
 LR        = 1e-3
-SEEDS     = [42, 100, 2026, 777, 999]
+SEEDS     = list(range(42, 42+15))  # 15 seeds for power calculation
 DEVICE    = "cpu"
 
-def train_one_epoch(model, loader, optimizer, criterion):
+def train_one_epoch(model, loader, optimizer, is_weighted=False):
     model.train()
     total = 0
     for x, y, conds in loader:
         x, y = x.to(DEVICE), y.to(DEVICE)
         optimizer.zero_grad()
-        loss = criterion(model(x), y)
+        preds = model(x)
+        if is_weighted:
+            weights = (1.0 + 10.0 * torch.abs(y)).detach()
+            loss = torch.mean(weights * (preds - y)**2)
+        else:
+            loss = nn.MSELoss()(preds, y)
         loss.backward()
         nn.utils.clip_grad_norm_(model.parameters(), 1.0)
         optimizer.step()
@@ -76,21 +81,23 @@ def run_training_pipeline():
         np.random.seed(seed)
         
         # Initialize Models
-        models = {
-            "BaseMamba": BaseMamba(n_genes=N_GENES, d_model=D_MODEL, n_layers=N_LAYERS).to(DEVICE),
-            "GCP-Mamba": GCPMamba(n_genes=N_GENES, D=D, d_model=D_MODEL, n_layers=N_LAYERS).to(DEVICE),
-            "GCP-Mamba (Permuted GO)": GCPMamba(n_genes=N_GENES, D=D_permuted, d_model=D_MODEL, n_layers=N_LAYERS).to(DEVICE)
-        }
+        models = {}
+        if seed - 42 < 5:
+            models["BaseMamba"] = BaseMamba(n_genes=N_GENES, d_model=D_MODEL, n_layers=N_LAYERS).to(DEVICE)
+            models["GCP-Mamba (Synergy-Weighted)"] = GCPMamba(n_genes=N_GENES, D=D, d_model=D_MODEL, n_layers=N_LAYERS).to(DEVICE)
+        
+        models["GCP-Mamba"] = GCPMamba(n_genes=N_GENES, D=D, d_model=D_MODEL, n_layers=N_LAYERS).to(DEVICE)
+        models["GCP-Mamba (Permuted GO)"] = GCPMamba(n_genes=N_GENES, D=D_permuted, d_model=D_MODEL, n_layers=N_LAYERS).to(DEVICE)
         
         loss_history[seed] = {}
         for name, model in models.items():
             print(f"  Training {name}...")
             optimizer = optim.AdamW(model.parameters(), lr=LR, weight_decay=1e-4)
-            criterion = nn.MSELoss()
+            is_weighted = "Weighted" in name
             
             loss_history[seed][name] = []
             for ep in range(1, EPOCHS + 1):
-                loss = train_one_epoch(model, engine.train_loader, optimizer, criterion)
+                loss = train_one_epoch(model, engine.train_loader, optimizer, is_weighted=is_weighted)
                 loss_history[seed][name].append(loss)
                 if ep == EPOCHS or ep % 10 == 0:
                     print(f"    Epoch {ep:2d} | loss={loss:.4f}")

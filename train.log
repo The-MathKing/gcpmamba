@@ -1,0 +1,293 @@
+Warning: mamba_ssm not found. Falling back to PurePyTorchSSM simulation (CPU only, O(N^2) memory).
+Initializing DataEngine...
+Loading data/norman/perturb_processed.h5ad...
+Identifying HVGs...
+HVGs identified.
+Subsetting to HVGs...
+Converting to dense array...
+Standardizing...
+Computing control means...
+Computing continuous topological graph D...
+Continuous structural graph (1 - |corr|) extracted from empirical covariance.
+Calculating condition-level pseudobulks...
+Data Engine Ready!
+Train batches: 3
+Seen 2/2 batches: 2
+Seen 1/2 batches: 1
+Seen 0/2 batches: 1
+
+=== Running Seed 42 ===
+  Training BaseMamba...
+    Epoch 10 | loss=0.1128
+    Epoch 20 | loss=0.0845
+    Epoch 30 | loss=0.0799
+    Epoch 40 | loss=0.0831
+    Epoch 50 | loss=0.0828
+  Training GCP-Mamba (Synergy-Weighted)...
+    Epoch 10 | loss=2.4361
+    Epoch 20 | loss=2.3744
+    Epoch 30 | loss=2.4703
+    Epoch 40 | loss=2.5024
+    Epoch 50 | loss=2.3644
+  Training GCP-Mamba...
+    Epoch 10 | loss=0.0825
+    Epoch 20 | loss=0.0793
+    Epoch 30 | loss=0.0848
+    Epoch 40 | loss=0.0824
+    Epoch 50 | loss=0.0807
+  Training GCP-Mamba (Permuted GO)...
+    Epoch 10 | loss=0.0827
+    Epoch 20 | loss=0.0837
+    Epoch 30 | loss=0.0826
+    Epoch 40 | loss=0.0830
+    Epoch 50 | loss=0.0809
+
+=== Running Seed 43 ===
+  Training BaseMamba...
+    Epoch 10 | loss=0.0821
+    Epoch 20 | loss=0.0832
+    Epoch 30 | loss=0.0817
+    Epoch 40 | loss=0.0815
+    Epoch 50 | loss=0.0832
+  Training GCP-Mamba (Synergy-Weighted)...
+    Epoch 10 | loss=2.4231
+    Epoch 20 | loss=2.4010
+    Epoch 30 | loss=2.4036
+    Epoch 40 | loss=2.4601
+    Epoch 50 | loss=2.3991
+  Training GCP-Mamba...
+    Epoch 10 | loss=0.0809
+    Epoch 20 | loss=0.0818
+    Epoch 30 | loss=0.0827
+    Epoch 40 | loss=0.0819
+    Epoch 50 | loss=0.0798
+  Training GCP-Mamba (Permuted GO)...
+    Epoch 10 | loss=0.0822
+    Epoch 20 | loss=0.0816
+    Epoch 30 | loss=0.0816
+    Epoch 40 | loss=0.0802
+    Epoch 50 | loss=0.0826
+
+=== Running Seed 44 ===
+  Training BaseMamba...
+    Epoch 10 | loss=0.1065
+    Epoch 20 | loss=0.0800
+    Epoch 30 | loss=0.0808
+    Epoch 40 | loss=0.0810
+    Epoch 50 | loss=0.0822
+  Training GCP-Mamba (Synergy-Weighted)...
+    Epoch 10 | loss=2.4180
+    Epoch 20 | loss=2.5082
+    Epoch 30 | loss=2.4793
+    Epoch 40 | loss=2.3798
+    Epoch 50 | loss=2.3819
+  Training GCP-Mamba...
+    Epoch 10 | loss=0.0801
+    Epoch 20 | loss=0.0814
+    Epoch 30 | loss=0.0814
+    Epoch 40 | loss=0.0807
+    Epoch 50 | loss=0.0823
+  Training GCP-Mamba (Permuted GO)...
+    Epoch 10 | loss=0.0803
+    Epoch 20 | loss=0.0806
+    Epoch 30 | loss=0.0827
+    Epoch 40 | loss=0.0830
+    Epoch 50 | loss=0.0806
+
+=== Running Seed 45 ===
+  Training BaseMamba...
+    Epoch 10 | loss=0.0888
+    Epoch 20 | loss=0.0842
+    Epoch 30 | loss=0.0802
+    Epoch 40 | loss=0.0830
+    Epoch 50 | loss=0.0824
+  Training GCP-Mamba (Synergy-Weighted)...
+    Epoch 10 | loss=2.5462
+    Epoch 20 | loss=2.4700
+    Epoch 30 | loss=2.4240
+    Epoch 40 | loss=2.3714
+    Epoch 50 | loss=2.3617
+  Training GCP-Mamba...
+    Epoch 10 | loss=0.1036
+    Epoch 20 | loss=0.0842
+    Epoch 30 | loss=0.0815
+    Epoch 40 | loss=0.0813
+    Epoch 50 | loss=0.0818
+  Training GCP-Mamba (Permuted GO)...
+    Epoch 10 | loss=0.0960
+    Epoch 20 | loss=0.0850
+    Epoch 30 | loss=0.0822
+    Epoch 40 | loss=0.0816
+    Epoch 50 | loss=0.0808
+
+=== Running Seed 46 ===
+  Training BaseMamba...
+    Epoch 10 | loss=0.0824
+    Epoch 20 | loss=0.0835
+    Epoch 30 | loss=0.0841
+    Epoch 40 | loss=0.0800
+    Epoch 50 | loss=0.0838
+  Training GCP-Mamba (Synergy-Weighted)...
+    Epoch 10 | loss=2.4106
+    Epoch 20 | loss=2.4993
+    Epoch 30 | loss=2.4047
+    Epoch 40 | loss=2.4072
+    Epoch 50 | loss=2.3337
+  Training GCP-Mamba...
+    Epoch 10 | loss=0.0830
+    Epoch 20 | loss=0.0831
+    Epoch 30 | loss=0.0829
+    Epoch 40 | loss=0.0827
+    Epoch 50 | loss=0.0812
+  Training GCP-Mamba (Permuted GO)...
+    Epoch 10 | loss=0.0856
+    Epoch 20 | loss=0.0827
+    Epoch 30 | loss=0.0806
+    Epoch 40 | loss=0.0805
+    Epoch 50 | loss=0.0810
+
+=== Running Seed 47 ===
+  Training GCP-Mamba...
+    Epoch 10 | loss=0.0804
+    Epoch 20 | loss=0.0813
+    Epoch 30 | loss=0.0839
+    Epoch 40 | loss=0.0809
+    Epoch 50 | loss=0.0831
+  Training GCP-Mamba (Permuted GO)...
+    Epoch 10 | loss=0.0820
+    Epoch 20 | loss=0.0818
+    Epoch 30 | loss=0.0819
+    Epoch 40 | loss=0.0809
+    Epoch 50 | loss=0.0839
+
+=== Running Seed 48 ===
+  Training GCP-Mamba...
+    Epoch 10 | loss=0.0835
+    Epoch 20 | loss=0.0817
+    Epoch 30 | loss=0.0829
+    Epoch 40 | loss=0.0832
+    Epoch 50 | loss=0.0847
+  Training GCP-Mamba (Permuted GO)...
+    Epoch 10 | loss=0.0815
+    Epoch 20 | loss=0.0812
+    Epoch 30 | loss=0.0832
+    Epoch 40 | loss=0.0832
+    Epoch 50 | loss=0.0828
+
+=== Running Seed 49 ===
+  Training GCP-Mamba...
+    Epoch 10 | loss=0.1978
+    Epoch 20 | loss=0.0840
+    Epoch 30 | loss=0.0839
+    Epoch 40 | loss=0.0827
+    Epoch 50 | loss=0.0811
+  Training GCP-Mamba (Permuted GO)...
+    Epoch 10 | loss=0.0817
+    Epoch 20 | loss=0.0827
+    Epoch 30 | loss=0.0844
+    Epoch 40 | loss=0.0795
+    Epoch 50 | loss=0.0816
+
+=== Running Seed 50 ===
+  Training GCP-Mamba...
+    Epoch 10 | loss=0.0851
+    Epoch 20 | loss=0.0812
+    Epoch 30 | loss=0.0803
+    Epoch 40 | loss=0.0824
+    Epoch 50 | loss=0.0808
+  Training GCP-Mamba (Permuted GO)...
+    Epoch 10 | loss=0.0870
+    Epoch 20 | loss=0.0830
+    Epoch 30 | loss=0.0841
+    Epoch 40 | loss=0.0818
+    Epoch 50 | loss=0.0795
+
+=== Running Seed 51 ===
+  Training GCP-Mamba...
+    Epoch 10 | loss=0.0902
+    Epoch 20 | loss=0.0833
+    Epoch 30 | loss=0.0841
+    Epoch 40 | loss=0.0819
+    Epoch 50 | loss=0.0830
+  Training GCP-Mamba (Permuted GO)...
+    Epoch 10 | loss=0.0811
+    Epoch 20 | loss=0.0848
+    Epoch 30 | loss=0.0814
+    Epoch 40 | loss=0.0817
+    Epoch 50 | loss=0.0834
+
+=== Running Seed 52 ===
+  Training GCP-Mamba...
+    Epoch 10 | loss=0.0822
+    Epoch 20 | loss=0.0789
+    Epoch 30 | loss=0.0804
+    Epoch 40 | loss=0.0814
+    Epoch 50 | loss=0.0834
+  Training GCP-Mamba (Permuted GO)...
+    Epoch 10 | loss=0.0881
+    Epoch 20 | loss=0.0814
+    Epoch 30 | loss=0.0820
+    Epoch 40 | loss=0.0820
+    Epoch 50 | loss=0.0802
+
+=== Running Seed 53 ===
+  Training GCP-Mamba...
+    Epoch 10 | loss=0.0820
+    Epoch 20 | loss=0.0829
+    Epoch 30 | loss=0.0826
+    Epoch 40 | loss=0.0819
+    Epoch 50 | loss=0.0824
+  Training GCP-Mamba (Permuted GO)...
+    Epoch 10 | loss=0.0813
+    Epoch 20 | loss=0.0833
+    Epoch 30 | loss=0.0834
+    Epoch 40 | loss=0.0866
+    Epoch 50 | loss=0.0796
+
+=== Running Seed 54 ===
+  Training GCP-Mamba...
+    Epoch 10 | loss=0.0878
+    Epoch 20 | loss=0.0840
+    Epoch 30 | loss=0.0815
+    Epoch 40 | loss=0.0807
+    Epoch 50 | loss=0.0824
+  Training GCP-Mamba (Permuted GO)...
+    Epoch 10 | loss=0.0812
+    Epoch 20 | loss=0.0829
+    Epoch 30 | loss=0.0827
+    Epoch 40 | loss=0.0819
+    Epoch 50 | loss=0.0817
+
+=== Running Seed 55 ===
+  Training GCP-Mamba...
+    Epoch 10 | loss=0.0858
+    Epoch 20 | loss=0.0843
+    Epoch 30 | loss=0.0810
+    Epoch 40 | loss=0.0861
+    Epoch 50 | loss=0.0804
+  Training GCP-Mamba (Permuted GO)...
+    Epoch 10 | loss=0.0823
+    Epoch 20 | loss=0.0813
+    Epoch 30 | loss=0.0824
+    Epoch 40 | loss=0.0792
+    Epoch 50 | loss=0.0807
+
+=== Running Seed 56 ===
+  Training GCP-Mamba...
+    Epoch 10 | loss=0.0817
+    Epoch 20 | loss=0.0809
+    Epoch 30 | loss=0.0823
+    Epoch 40 | loss=0.0832
+    Epoch 50 | loss=0.0804
+  Training GCP-Mamba (Permuted GO)...
+    Epoch 10 | loss=0.0792
+    Epoch 20 | loss=0.0831
+    Epoch 30 | loss=0.0836
+    Epoch 40 | loss=0.0836
+    Epoch 50 | loss=0.0797
+
+Saved predictions.csv successfully. All further analysis will use this canonical file.
+Saved training_losses.json.
+
+--- M_delta vs GO distance analysis ---
+M_delta vs Distance: r = -0.001, n = 249626, p = 6.8907e-01

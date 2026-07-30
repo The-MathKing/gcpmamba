@@ -58,9 +58,7 @@ def calc_metrics_per_condition(df, df_additive, top_k=20):
                 add_pred = add_dict[(cond, seed, g)]
                 yt_synergy[i] = yt[i] - add_pred
                 yp_synergy[i] = yp[i] - add_pred
-            else:
-                valid_synergy = False
-                break
+        synergy_magnitude = np.mean(np.abs(yt_synergy))
                 
         # Only compute synergy correlation if it's a combinatorial condition (has a valid additive baseline)
         if valid_synergy and '+' in cond and np.std(yt_synergy) > 1e-6 and np.std(yp_synergy) > 1e-6:
@@ -75,10 +73,21 @@ def calc_metrics_per_condition(df, df_additive, top_k=20):
             "Seed": seed,
             "MSE": mse,
             "Pearson": r,
-            "Synergy_Pearson": r_syn
+            "Synergy_Pearson": r_syn,
+            "Synergy_Magnitude": synergy_magnitude
         })
         
-    return pd.DataFrame(results)
+    df_res = pd.DataFrame(results)
+    
+    # Classify as high/low synergy for doubles
+    df_doubles = df_res[df_res['Condition'].str.contains('\+')]
+    if len(df_doubles) > 0:
+        median_mag = df_doubles['Synergy_Magnitude'].median()
+        df_res['Stratum'] = df_res.apply(lambda row: 'High Synergy' if row['Synergy_Magnitude'] >= median_mag else 'Low Synergy', axis=1)
+    else:
+        df_res['Stratum'] = 'All'
+        
+    return df_res
 
 def generate_figures():
     print("Loading predictions.csv...")
@@ -110,10 +119,23 @@ def generate_figures():
     df_final['Pearson_ci'] = t_val * df_final['Pearson_std'] / np.sqrt(df_final['n_seeds'])
     df_final['Synergy_ci'] = t_val * df_final['Synergy_std'] / np.sqrt(df_final['n_seeds'])
     
-    print("\n=== FINAL RESULTS ===")
+    print("\n=== FINAL RESULTS (Pooled) ===")
     print(df_final.to_string(index=False))
     
     df_final.to_csv("final_metrics.csv", index=False)
+    
+    print("\n=== ABLATION TABLE (NicheDeSig Table 4 Style) ===")
+    # NicheDeSig table 4 format: BaseMamba, GCP-Mamba, Permuted, etc.
+    # Stratified by high vs low synergy
+    df_stratum = df_metrics.groupby(["Split", "Stratum", "Model", "Seed"])[["MSE", "Pearson", "Synergy_Pearson"]].mean(numeric_only=True).reset_index()
+    df_stratum_final = df_stratum.groupby(["Split", "Stratum", "Model"]).agg(
+        MSE=("MSE", "mean"),
+        Pearson=("Pearson", "mean"),
+        Synergy=("Synergy_Pearson", "mean")
+    ).reset_index()
+    
+    print(df_stratum_final.to_string(index=False))
+    df_stratum_final.to_csv("ablation_table_stratified.csv", index=False)
     
     # Generate Bar Chart
     sns.set_theme(style="whitegrid", font_scale=1.1)

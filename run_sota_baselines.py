@@ -11,7 +11,7 @@ from data_loader import DataEngine
 N_GENES = 500
 EPOCHS = 50
 LR = 1e-3
-SEEDS = [42, 100, 2026, 777, 999]
+SEEDS = list(range(42, 42+15))
 DEVICE = "cpu"
 
 class GCNLayer(nn.Module):
@@ -96,19 +96,7 @@ def run_baselines():
         torch.manual_seed(seed)
         np.random.seed(seed)
         
-        # 1. GEARS (GCN)
-        gcn = FaithfulGEARS(N_GENES, adj_norm).to(DEVICE)
-        opt = torch.optim.AdamW(gcn.parameters(), lr=LR, weight_decay=1e-4)
-        crit = nn.MSELoss()
-        
-        for ep in range(1, EPOCHS+1):
-            gcn.train()
-            for xb, yb, _ in engine.train_loader:
-                xb, yb = xb.to(DEVICE), yb.to(DEVICE)
-                opt.zero_grad()
-                loss = crit(gcn(xb), yb)
-                loss.backward()
-                opt.step()
+        # 1. GEARS (GCN) - Removed as per user instruction to cite numbers instead.
         
         # 2. Linear Regression (Ridge)
         ridge = Ridge(alpha=1.0)
@@ -121,7 +109,6 @@ def run_baselines():
             ("Seen 0/2", engine.seen0_loader)
         ]
         
-        gcn.eval()
         with torch.no_grad():
             for split_name, loader in splits:
                 if len(loader.dataset) == 0: continue
@@ -129,9 +116,7 @@ def run_baselines():
                 for xb, yb, conds in loader:
                     y_true = yb.numpy()
                     
-                    # GEARS
-                    y_gcn = gcn(xb.to(DEVICE)).cpu().numpy()
-                    evaluate_and_append(y_true, y_gcn, conds, "GEARS", seed, split_name, results_list)
+                    # GEARS Removed
                     
                     # Linear
                     y_lin = ridge.predict(xb.numpy())

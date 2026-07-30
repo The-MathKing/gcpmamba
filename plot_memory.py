@@ -18,11 +18,28 @@ mem_mamba = [0.7, 3.3, 6.6, 13.2, 33.0]
 # "exceeding 14GB at 5000 genes"
 mem_gcn = [10.0, 250.0, 1000.0, 4000.0, 15000.0]
 
-plt.figure(figsize=(9, 6))
-plt.plot(L_vals, mem_mamba, label=r'GCP-Mamba ($\mathcal{O}(L)$ Sequence Scan)', marker='o', color='#2196F3', linewidth=2.5)
-plt.plot(L_vals, mem_gcn, label=r'FaithfulGEARS ($\mathcal{O}(L^2)$ GCN Message Passing)', marker='X', color='#E53935', linewidth=2.5, markersize=8)
+fig, ax = plt.subplots(figsize=(9, 6))
+data = {
+    'GCP-Mamba ($\mathcal{O}(L)$)': mem_mamba,
+    'FaithfulGEARS ($\mathcal{O}(L^2)$)': mem_gcn
+}
+colors = {'GCP-Mamba ($\mathcal{O}(L)$)': '#2196F3', 'FaithfulGEARS ($\mathcal{O}(L^2)$)': '#E53935'}
 
-plt.axhline(y=15360, color='r', linestyle='--', label='15GB Colab T4 VRAM Limit')
+for label, mems in data.items():
+    # Measured: first 3 points, Projected: last 3 points (overlap at index 2)
+    L_measured = L_vals[:3]
+    mems_measured = mems[:3]
+    L_projected = L_vals[2:]
+    mems_projected = mems[2:]
+    
+    # Plot Measured
+    ax.plot(L_measured, mems_measured, marker='o', markersize=8, linewidth=3, 
+            color=colors[label], label=label)
+    # Plot Projected
+    ax.plot(L_projected, mems_projected, linestyle='--', marker='s', markersize=8, linewidth=3,
+            color=colors[label])
+
+ax.axhline(y=15360, color='r', linestyle='--', label='15GB Colab T4 VRAM Limit')
 
 plt.xlabel('Sequence Length (Number of Genes $L$)', fontsize=12)
 plt.ylabel('Peak GPU VRAM Usage (MB)', fontsize=12)
