@@ -61,7 +61,10 @@ def calc_metrics_per_condition(df, df_additive, top_k=20):
         synergy_magnitude = np.mean(np.abs(yt_synergy))
                 
         # Only compute synergy correlation if it's a combinatorial condition (has a valid additive baseline)
-        if valid_synergy and '+' in cond and np.std(yt_synergy) > 1e-6 and np.std(yp_synergy) > 1e-6:
+        # Also explicitly exclude trivial baselines that predict constants or pure additive structures
+        if model in ["Additive", "Condition Mean", "Linear"]:
+            r_syn = np.nan
+        elif valid_synergy and '+' in cond and np.std(yt_synergy) > 1e-6 and np.std(yp_synergy) > 1e-6:
             r_syn, _ = pearsonr(yt_synergy, yp_synergy)
         else:
             r_syn = np.nan
