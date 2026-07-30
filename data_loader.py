@@ -84,14 +84,15 @@ class DataEngine:
         ctrl_mask = adata.obs['condition'] == 'ctrl'
         ctrl_mean = X_base_z[ctrl_mask].mean(axis=0)
         
-        # Build topological graph D based on empirical covariance of training data
+        # Build dense, continuous topological graph D based on empirical covariance
+        # This replaces the unweighted shortest-path topology with a smooth continuous prior
         cov_matrix = np.corrcoef(X_train_base.T)
         cov_matrix = np.nan_to_num(cov_matrix)
-        adj_matrix = (np.abs(cov_matrix) > 0.3).astype(float)
-        D = shortest_path(adj_matrix, method='auto', unweighted=True)
-        D[np.isinf(D)] = 10
+        # Distance is inversely proportional to absolute correlation. 
+        # Range is [0, 1] where 0 is perfectly correlated, 1 is orthogonal
+        D = 1.0 - np.abs(cov_matrix)
         self.D = torch.tensor(D, dtype=torch.float32)
-        print("Structural graph extracted from empirical covariance.")
+        print("Continuous structural graph (1 - |corr|) extracted from empirical covariance.")
         
         # Calculate condition-level pseudobulks for ALL conditions
         unique_conditions = adata.obs['condition'].unique()

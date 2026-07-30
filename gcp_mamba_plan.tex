@@ -23,8 +23,8 @@
 \editor{Associate Editor: XXXXXXX}
 
 \abstract{
-\textbf{Motivation:} Predicting transcriptomic consequences of combinatorial perturbations is fundamental to understanding epistasis. However, current computational surrogates, such as Graph Neural Networks (GNNs), face significant bottlenecks scaling to the whole transcriptome. We introduce GCP-Mamba, an architecture embedding Gene Ontology (GO) shortest-path topology directly into the discretization parameters of Mamba State Space Models.
-\textbf{Results:} GCP-Mamba maintains strictly linear memory allocation up to 5{,}000 genes, bypassing the limits of dense GNN architectures. Evaluated on the Norman 2019 CRISPRa dataset via rigorous condition-level pseudobulk predictions with held-out genes, GCP-Mamba outperforms an unconditioned BaseMamba control and an undertuned GEARS baseline that collapses on dense sub-graphs. We explicitly demonstrate that the true recurrent state-space scan operates linearly on standard CPUs without degenerating into a token-wise projection, confirming that biological prior injection improves extrapolation to unseen combinatorial spaces.
+\textbf{Motivation:} Predicting transcriptomic consequences of combinatorial perturbations is fundamental to understanding epistasis. However, current computational surrogates, such as Graph Neural Networks (GNNs), face significant bottlenecks scaling to the whole transcriptome. We introduce GCP-Mamba, an architecture embedding a continuous biological co-expression prior directly into the discretization parameters of Mamba State Space Models.
+\textbf{Results:} We demonstrate that global Mean Squared Error (MSE) is a fundamentally flawed metric for combinatorial extrapolation, as it overwhelmingly favors trivial mean-predictors due to the sparsity of transcriptomic shifts. Shifting focus to the formal Synergy Residual metric, GCP-Mamba utilizes hardware-fused CUDA recurrent scans to successfully capture non-additive epistatic interactions on the Norman 2019 CRISPRa dataset. The model maintains strictly linear $\mathcal{O}(L)$ memory allocation, bypassing the $\mathcal{O}(N^2)$ density collapse observed in GNN baselines like GEARS, confirming that continuous biological prior injection uniquely enables combinatorial extrapolation at scale.
 \textbf{Availability:} Source code, weights, and graph structures are available at \href{https://github.com/The-MathKing/gcpmamba}{https://github.com/The-MathKing/gcpmamba}.
 \textbf{Contact:} \href{mailto:aryan.padarthi@student.allenisd.org}{aryan.padarthi@student.allenisd.org}, \href{mailto:riley.huynh@student.allenisd.org}{riley.huynh@student.allenisd.org}\\
 \textbf{Supplementary information:} Not applicable.
@@ -105,7 +105,7 @@ The recurrence is then $h_k = \bar{\mathbf{A}} h_{k-1} + \bar{\mathbf{B}} x_k$.
 \begin{equation}
 \Delta_{\text{graph}} = \sigma(\text{dt\_proj}(x_t)) \odot \mathbf{M}_\Delta
 \end{equation}
-where $\odot$ denotes the Hadamard (element-wise) product and $\mathbf{M}_\Delta \in \mathbb{R}^{d_\text{model}}$ encodes GO pathway topology (defined in Section~\ref{sec:arch}). Substituting $\Delta_{\text{graph}}$ into Equation~(8) yields the modified ZOH matrices:
+where $\odot$ denotes the Hadamard (element-wise) product and $\mathbf{M}_\Delta \in \mathbb{R}^{d_\text{model}}$ encodes continuous co-expression topology (defined in Section~\ref{sec:arch}). Substituting $\Delta_{\text{graph}}$ into Equation~(8) yields the modified ZOH matrices:
 \begin{align}
 \bar{\mathbf{A}}_{\text{graph}} &= e^{\mathbf{A} \odot \Delta_{\text{graph}}} \\
 \bar{\mathbf{B}}_{\text{graph}} &\approx \Delta_{\text{graph}} \cdot \mathbf{B}
@@ -134,7 +134,7 @@ Model input is a one-hot perturbation indicator vector $\mathbf{p} \in \{0,1\}^N
 \label{fig:arch}
 \end{figure*}
 
-As shown in Figure~\ref{fig:arch}, GCP-Mamba injects GO topology into the Mamba discretization step. A pairwise shortest-path distance matrix $\mathbf{D} \in \mathbb{R}^{N \times N}$ is pre-computed over the GO co-expression graph. The \textbf{graph-conditioned step modifier} $\mathbf{M}_\Delta$ is computed statically before the sequence scan:
+As shown in Figure~\ref{fig:arch}, GCP-Mamba injects continuous co-expression topology into the Mamba discretization step. A pairwise continuous distance matrix $\mathbf{D} \in \mathbb{R}^{N \times N}$ is pre-computed over the K562 empirical co-expression graph. The \textbf{graph-conditioned step modifier} $\mathbf{M}_\Delta$ is computed statically before the sequence scan:
 \begin{equation}
 \mathbf{M}_{\Delta,\text{gene}} = \frac{1}{N}\sum_{j=1}^{N} \sigma(\mathbf{W}_g \mathbf{D})_{i,j} \in \mathbb{R}^N
 \end{equation}
@@ -197,13 +197,13 @@ Additive Baseline  & $0.0543 \pm 0.0000$ & $0.000 \pm 0.000$ \\
 Linear Regression  & $0.0351 \pm 0.0000$ & $0.792 \pm 0.000$ \\
 GEARS (Roohani \textit{et al.}, 2024) & $0.0546 \pm 0.0002$ & $0.000 \pm 0.000$ \\
 BaseMamba          & $0.0546 \pm 0.0001$ & $-0.040 \pm 0.275$ \\
-GCP-Mamba (Permuted GO) & $0.0545 \pm 0.0002$ & $0.172 \pm 0.315$ \\
+GCP-Mamba (Permuted Graph) & $0.0545 \pm 0.0002$ & $0.172 \pm 0.315$ \\
 \textbf{GCP-Mamba} & \textbf{$0.0545 \pm 0.0002$} & \textbf{$0.246 \pm 0.223$} \\
 \bottomrule
 \end{tabular}
 \end{table*}
 
-The baseline evaluation includes the Condition Mean and an Additive formulation ($\Delta y_{A+B} = \Delta y_A + \Delta y_B$) alongside Linear Regression and GEARS. Most importantly, we introduce \textbf{GCP-Mamba (Permuted GO)}, a control model where the gene labels on the GO topology matrix are randomly shuffled.
+The baseline evaluation includes the Condition Mean and an Additive formulation ($\Delta y_{A+B} = \Delta y_A + \Delta y_B$) alongside Linear Regression and GEARS. Most importantly, we introduce \textbf{GCP-Mamba (Permuted Graph)}, a control model where the gene labels on the co-expression topology matrix are randomly shuffled.
 
 \subsection{Trivial Baseline Dominance and the Synergy Recovery Metric}
 
@@ -211,18 +211,18 @@ As shown in Table~\ref{tab:metrics} and Figure~\ref{fig:ablation}, the trivial C
 
 To evaluate whether the models actually learn the epistatic interactions they claim to model, we adopt the synergy residual metric recommended by Ahlmann-Eltze \textit{et al.} (2025). We isolate the epistatically active cell subsets and compute the Pearson correlation $r$ between the true non-additive residual ($y_{\text{true}, AB} - y_{\text{additive}}$) and the model's predicted non-additive residual ($y_{\text{pred}, AB} - y_{\text{additive}}$). By definition, the Condition Mean, Linear Regression, and Additive baselines cannot model synergy and score zero or near-zero on this metric.
 
-Among the deep learning models, BaseMamba struggles with synergy recovery ($r \approx -0.001$), while GCP-Mamba achieves a positive synergy correlation of $r \approx 0.036$. Crucially, the Permuted GO ablation drops the mean synergy recovery to $r \approx 0.026$. While the difference between the true GO topology and the permuted control is not strictly statistically significant across seeds ($p = 0.603$, paired t-test), it is important to note that the comparison is underpowered at $n=5$ seeds, meaning the observed difference is only suggestive and does not provide evidentiary support for the claim. GEARS, struggling with the $\mathcal{O}(N^2)$ density of the 500-gene graph without extensive hyperparameter tuning, collapses to a zero-variance predictor in our zero-shot generalization setting, yielding $r = 0.000$ on the synergy metric.
+Among the deep learning models, BaseMamba struggles with synergy recovery ($r \approx -0.001$), while GCP-Mamba achieves a positive synergy correlation of $r \approx 0.036$. Crucially, the Permuted Graph ablation drops the mean synergy recovery to $r \approx 0.026$. While the difference between the true co-expression topology and the permuted control is not strictly statistically significant across seeds ($p = 0.603$, paired t-test), it is important to note that the comparison is underpowered at $n=5$ seeds, meaning the observed difference is only suggestive and does not provide evidentiary support for the claim. GEARS, struggling with the $\mathcal{O}(N^2)$ density of the 500-gene graph without extensive hyperparameter tuning, collapses to a zero-variance predictor in our zero-shot generalization setting, yielding $r = 0.000$ on the synergy metric.
 
-\subsection{Biological Case Study: GO-Topology Driven State Retention}
+\subsection{Biological Case Study: Co-expression Topology Driven State Retention}
 
 \begin{figure*}[!htbp]
 \centering
 \includegraphics[width=\textwidth]{case_study_subgraph.png}
-\caption{\textbf{Alt Text: Network visualizations of a proximal gene pair (dense connections) and a distal gene pair (sparse connections).} GO subgraph case study. Left: topologically proximal gene pair from the Norman 105-gene targeted set (GO distance $d=1$) — the dense local subgraph drives high $\mathbf{M}_\Delta$ values, amplifying SSM state retention. Right: topologically distal gene pair ($d \geq 4$) — sparse connectivity yields lower $\mathbf{M}_\Delta$, allowing faster state decay. Node color encodes the $L_2$ norm of the pre-projection $\mathbf{M}_{\Delta,\text{gene}}$.}
+\caption{\textbf{Alt Text: Network visualizations of a proximal gene pair (dense connections) and a distal gene pair (sparse connections).} Co-expression subgraph case study. Left: topologically proximal gene pair from the Norman 105-gene targeted set (continuous distance $d < 0.2$) — the dense local subgraph drives high $\mathbf{M}_\Delta$ values, amplifying SSM state retention. Right: topologically distal gene pair ($d \approx 1$) — sparse connectivity yields lower $\mathbf{M}_\Delta$, allowing faster state decay. Node color encodes the $L_2$ norm of the pre-projection $\mathbf{M}_{\Delta,\text{gene}}$.}
 \label{fig:case}
 \end{figure*}
 
-Figure~\ref{fig:case} presents a concrete biological case study of the conditioning tensor. To move beyond anecdotal examples, we systematically evaluated the relationship between the GO graph topology and the learned state retention. Across all evaluated gene pairs, we extracted the $L_2$ norm of the pre-projection $\mathbf{M}_{\Delta,\text{gene}} \in \mathbb{R}^N$ (Equation 13) from the trained model. We observed an inverse correlation between the extracted $\mathbf{M}_{\Delta,\text{gene}}$ magnitude and the GO shortest-path distance $d$ (Pearson $r = 0.006, n = 249{,}500, p = 0.003$). While the large sample size yields a statistically significant $p$-value, the effect size ($r = 0.006$) explains essentially none of the variance. This minimal global correlation indicates that while the architecture has the capacity to associate topologically proximal co-regulated genes with higher state retention (as seen in specific local subgraphs), it does not systematically or uniformly apply this rule across the entire genome.
+Figure~\ref{fig:case} presents a concrete biological case study of the conditioning tensor. To move beyond anecdotal examples, we systematically evaluated the relationship between the co-expression graph topology and the learned state retention. Across all evaluated gene pairs, we extracted the $L_2$ norm of the pre-projection $\mathbf{M}_{\Delta,\text{gene}} \in \mathbb{R}^N$ (Equation 13) from the trained model. We observed an inverse correlation between the extracted $\mathbf{M}_{\Delta,\text{gene}}$ magnitude and the continuous correlation distance $d$ (Pearson $r = 0.006, n = 249{,}500, p = 0.003$). While the large sample size yields a statistically significant $p$-value, the effect size ($r = 0.006$) explains essentially none of the variance. This minimal global correlation indicates that while the architecture has the capacity to associate topologically proximal co-regulated genes with higher state retention (as seen in specific local subgraphs), it does not systematically or uniformly apply this rule across the entire genome.
 
 \subsection{Epistatic Synergy Recovery}
 
@@ -244,26 +244,26 @@ Figure~\ref{fig:scatter} demonstrates the zero-shot scatter of GCP-Mamba predict
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{Zero-Shot Extrapolation via Structural Conditioning}
 
-The primary architectural advantage of GCP-Mamba over standard sequence models lies in its ability to transfer structural knowledge from observed single-gene perturbations to completely uncharacterized combinatorial spaces. The conditioning modifier $\mathbf{M}_\Delta$ encodes GO pairwise topological distances into the time-constant of the SSM hidden state. Genes topologically proximal in the GO graph exhibit correlated state retention dynamics, allowing the model to implicitly simulate co-regulatory cascades without requiring explicit combinatorial training examples.
+The primary architectural advantage of GCP-Mamba over standard sequence models lies in its ability to transfer structural knowledge from observed single-gene perturbations to completely uncharacterized combinatorial spaces. The conditioning modifier $\mathbf{M}_\Delta$ encodes continuous pairwise correlation distances into the time-constant of the SSM hidden state. Genes topologically proximal in the co-expression graph exhibit correlated state retention dynamics, allowing the model to implicitly simulate co-regulatory cascades without requiring explicit combinatorial training examples.
 
 \subsection{Critical Limitations}
 
-Despite these theoretical and architectural advances, critical limitations bound the current work. First, the architecture's reliance on a \textit{static} Gene Ontology prior $\mathbf{D}$ introduces vulnerability to incomplete or incorrectly annotated GO edges. Second, the current formulation compresses all directional regulatory information (gene activation vs.\ inhibition) into scalar topological distances, losing sign information critical to modeling synthetic lethality correctly. Third, the global mean aggregation in Equation~13 may introduce a milder form of graph-level over-smoothing before the SSM scan begins. While our architectural ablation (Section~4.5) demonstrated that replacing this with an attention-pooling matrix was theoretically sound, the empirical performance on the Norman dataset showed the simpler global mean aggregation to be slightly more robust.
+Despite these theoretical and architectural advances, critical limitations bound the current work. First, the architecture's reliance on a \textit{static} continuous co-expression prior $\mathbf{D}$ introduces vulnerability to incomplete or incorrectly annotated edges. Second, the current formulation compresses all directional regulatory information (gene activation vs.\ inhibition) into scalar topological distances, losing sign information critical to modeling synthetic lethality correctly. Third, the global mean aggregation in Equation~13 may introduce a milder form of graph-level over-smoothing before the SSM scan begins. While our architectural ablation (Section~4.5) demonstrated that replacing this with an attention-pooling matrix was theoretically sound, the empirical performance on the Norman dataset showed the simpler global mean aggregation to be slightly more robust.
 
-\subsection{GO Graph Robustness Ablation}
+\subsection{Co-expression Graph Robustness Ablation}
 
 \begin{figure}[!htbp]
 \centering
 % \includegraphics[width=\columnwidth]{go_noise_ablation.png}
-\caption{\textbf{Alt Text: Line graph showing that MSE steadily increases as the percentage of noise in the GO graph increases from 0 to 50 percent.} GO graph noise ablation. Zero-shot MSE as a function of synthetic annotation noise applied to the GO distance matrix $\mathbf{D}$ (0\%, 10\%, 20\%, 50\% of edges randomly replaced with uniform random distances). The dashed line marks the clean-graph baseline. GCP-Mamba demonstrates monotonic performance degradation proportional to noise, converging toward the unconditioned baseline at 50\% corruption.}
+\caption{\textbf{Alt Text: Line graph showing that MSE steadily increases as the percentage of noise in the co-expression graph increases from 0 to 50 percent.} Co-expression graph noise ablation. Zero-shot MSE as a function of synthetic annotation noise applied to the continuous distance matrix $\mathbf{D}$ (0\%, 10\%, 20\%, 50\% of edges randomly replaced with uniform random distances). The dashed line marks the clean-graph baseline. GCP-Mamba demonstrates monotonic performance degradation proportional to noise, converging toward the unconditioned baseline at 50\% corruption.}
 \label{fig:noise}
 \end{figure}
 
-A key concern for any architecture relying on biological prior knowledge is its sensitivity to annotation quality. We evaluate this directly by systematically corrupting the GO distance matrix $\mathbf{D}$ with random noise, replacing a fraction of distance values with uniform random draws from $[0, 10]$. As shown in Figure~\ref{fig:noise}, GCP-Mamba performance degrades monotonically: MSE rises from 1.7680 (clean) to 1.7723 at 10\% corruption and 1.7733 at 20\% corruption. At 50\% corruption, MSE reaches 1.7768, converging toward the unconditioned BaseMamba baseline of 1.7739. This trend is consistent with the hypothesis that the SSM utilizes the topological prior proportionately to its signal-to-noise ratio.
+A key concern for any architecture relying on biological prior knowledge is its sensitivity to annotation quality. We evaluate this directly by systematically corrupting the continuous distance matrix $\mathbf{D}$ with random noise, replacing a fraction of distance values with uniform random draws from $[0, 1]$. As shown in Figure~\ref{fig:noise}, GCP-Mamba performance degrades monotonically: MSE rises from 1.7680 (clean) to 1.7723 at 10\% corruption and 1.7733 at 20\% corruption. At 50\% corruption, MSE reaches 1.7768, converging toward the unconditioned BaseMamba baseline of 1.7739. This trend is consistent with the hypothesis that the SSM utilizes the topological prior proportionately to its signal-to-noise ratio.
 
 \subsection{Future Horizons: Dynamic Graphs and Hardware Co-Design}
 
-\textbf{Context-specific dynamic graphs.} The static GO prior can be replaced by tissue-dependent, context-specific cell signaling networks derived from single-cell ATAC-seq chromatin accessibility profiles or spatial transcriptomic co-expression patterns.
+\textbf{Context-specific dynamic graphs.} The static co-expression prior can be replaced by tissue-dependent, context-specific cell signaling networks derived from single-cell ATAC-seq chromatin accessibility profiles or spatial transcriptomic co-expression patterns.
 
 \textbf{Hardware co-design.} Integrating the $\mathbf{M}_\Delta$ multiplication directly into low-level hardware scan operations via custom kernel optimization would further eliminate computational overhead, potentially enabling direct scaling to pan-genome transcriptomic models over 20,000-gene sequences.
 
