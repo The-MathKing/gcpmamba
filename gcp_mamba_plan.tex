@@ -129,7 +129,7 @@ Model input is a one-hot perturbation indicator vector $\mathbf{p} \in \{0,1\}^N
 
 \begin{figure*}[!htbp]
 \centering
-\includegraphics[width=0.7\textwidth]{architecture_diagram.png}
+\includegraphics[width=\textwidth]{architecture_diagram.png}
 \caption{\textbf{Alt Text: A flowchart showing Gene Ontology data passing through a GCN into the Delta discretization parameter of a Mamba SSM block.} GCP-Mamba architectural routing. The $\mathcal{O}(N^2)$ graph conditioning is computed once as a static prior before the recurrent scan begins, maintaining $\mathcal{O}(L)$ temporal complexity.}
 \label{fig:arch}
 \end{figure*}
@@ -156,7 +156,7 @@ All Mamba-based models evaluate $N = 500$ top highly variable genes with state d
 
 \begin{figure*}[!htbp]
 \centering
-\includegraphics[width=0.7\textwidth]{training_curve.png}
+\includegraphics[width=\textwidth]{training_curve.png}
 \caption{\textbf{Alt Text: Line graph showing training loss decreasing rapidly and plateauing for three models over 100 epochs.} Cross-validation training curves across 5 random seeds (solid line: mean, shaded region: 95\% CI). GCP-Mamba converges equivalently to the BaseMamba and Permuted Graph controls, confirming that biological prior conditioning does not introduce optimization instability over 100 epochs.}
 \label{fig:training}
 \end{figure*}
@@ -168,7 +168,7 @@ All Mamba-based models evaluate $N = 500$ top highly variable genes with state d
 
 \begin{figure*}[!htbp]
 \centering
-\includegraphics[width=0.7\textwidth]{memory_scaling.png}
+\includegraphics[width=\textwidth]{memory_scaling.png}
 \caption{\textbf{Alt Text: Line graph demonstrating that GCP-Mamba and BaseMamba peak VRAM usage scales linearly with gene count, whereas GCN and Transformer scale super-linearly, exceeding 14GB and 80GB at 5000 genes.} Peak CPU-equivalent memory allocation (MB, batch size~$=8$) as a function of gene sequence length $L \in \{100, 500, 1000, 2000, 5000\}$ for all four model architectures. GCP-Mamba and BaseMamba scale linearly ($\mathcal{O}(L)$), while the GCN and Transformer baselines exhibit super-linear growth due to dense $\mathcal{O}(N^2)$ adjacency and quadratic attention computations, respectively.}
 \label{fig:memory}
 \end{figure*}
@@ -179,7 +179,7 @@ Figure~\ref{fig:memory} empirically validates the central computational claim of
 
 \begin{figure*}[!htbp]
 \centering
-\includegraphics[width=0.7\textwidth]{benchmarking_results.png}
+\includegraphics[width=\textwidth]{benchmarking_results.png}
 \caption{\textbf{Alt Text: Bar chart showing GCP-Mamba achieving a lower (better) MSE than BaseMamba across cross-validation folds.} Zero-shot condition-level ablation. GCP-Mamba (w/ $\mathbf{M}_\Delta$) vs.\ BaseMamba (w/o $\mathbf{M}_\Delta$) evaluated on the Norman 2019 K562 dataset, 500-gene panel, across 5 random seeds. Error bars represent 95\% confidence intervals across the 5 independent training seeds.}
 \label{fig:ablation}
 \end{figure*}
@@ -217,7 +217,7 @@ Among the deep learning models, BaseMamba struggles with synergy recovery ($r \a
 
 \begin{figure*}[!htbp]
 \centering
-\includegraphics[width=0.7\textwidth]{case_study_subgraph.png}
+\includegraphics[width=\textwidth]{case_study_subgraph.png}
 \caption{\textbf{Alt Text: Network visualizations of a proximal gene pair (dense connections) and a distal gene pair (sparse connections).} Co-expression subgraph case study. Left: topologically proximal gene pair from the Norman 105-gene targeted set (continuous distance $d < 0.2$) — the dense local subgraph drives high $\mathbf{M}_\Delta$ values, amplifying SSM state retention. Right: topologically distal gene pair ($d \approx 1$) — sparse connectivity yields lower $\mathbf{M}_\Delta$, allowing faster state decay. Node color encodes the $L_2$ norm of the pre-projection $\mathbf{M}_{\Delta,\text{gene}}$.}
 \label{fig:case}
 \end{figure*}
@@ -228,7 +228,7 @@ Figure~\ref{fig:case} presents a concrete biological case study of the condition
 
 \begin{figure*}[!htbp]
 \centering
-\includegraphics[width=0.7\textwidth]{epistatic_interactions.png}
+\includegraphics[width=\textwidth]{epistatic_interactions.png}
 \caption{\textbf{Alt Text: Scatter plot and hexbin plot showing a weak positive correlation between predicted and true expression changes.} Epistatic synergy recovery (zero-shot conditions, epistatically active cells only, $|\Delta Z| > 0.3$ in $\geq 10$ genes). Left: scatter of predicted vs.\ true $\Delta y$ with $y=x$ reference. Right: hexbin density distribution.}
 \label{fig:scatter}
 \end{figure*}

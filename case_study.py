@@ -41,7 +41,8 @@ def load_gene_names():
     return list(adata.var_names)
 
 def build_graph(D_matrix):
-    adj = (D_matrix == 1).astype(float)
+    adj = (D_matrix < 0.8).astype(float)
+    np.fill_diagonal(adj, 0)
     G = nx.from_numpy_array(adj)
     return G
 
