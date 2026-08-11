@@ -10,14 +10,14 @@ from model import GCPMamba, BaseMamba
 from data_loader import DataEngine
 
 # ─────────────────────────────────────────────────────────────────────────
-# CONFIG
+# CONFIG — Frozen hyperparameters from canonical_results.py
 # ─────────────────────────────────────────────────────────────────────────
 N_GENES   = 500
 D_MODEL   = 32
 N_LAYERS  = 1
-EPOCHS = 20
+EPOCHS    = 100
 LR        = 1e-3
-SEEDS     = [42]
+SEEDS     = list(range(42, 42 + 15))
 DEVICE    = "cpu"
 
 def train_one_epoch(model, loader, optimizer, criterion):

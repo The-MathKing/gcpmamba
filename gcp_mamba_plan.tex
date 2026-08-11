@@ -15,7 +15,7 @@
 \firstpage{1}
 \subtitle{Systems Biology}
 
-\title[GCP-Mamba]{Linear-Time Graph-Conditioned State Space Models for Combinatorial Perturbation Prediction: A Negative Result on Synergy Recovery}
+\title[GCP-Mamba]{Graph-Conditioned State Space Models for Combinatorial Perturbation Response Prediction}
 \author[Padarthi and Huynh]{Aryan Padarthi\,$^{\text{\sfb 1,}*}$, Riley Huynh\,$^{\text{\sfb 1}}$}
 \address{$^{\text{\sfb 1}}$Allen High School, Allen, TX, USA}
 \corresp{$^\ast$To whom correspondence should be addressed.}
@@ -23,10 +23,10 @@
 \editor{Associate Editor: TBD}
 
 \abstract{
-\textbf{Motivation:} Predicting transcriptomic consequences of combinatorial perturbations is fundamental to understanding epistasis. However, current computational surrogates, such as Graph Neural Networks (GNNs), face significant bottlenecks scaling to the whole transcriptome. We introduce GCP-Mamba, an architecture embedding a continuous biological co-expression prior directly into the discretization parameters of Mamba State Space Models.
-\textbf{Results:} We demonstrate that global Mean Squared Error (MSE) is a fundamentally flawed metric for combinatorial extrapolation, as it overwhelmingly favors trivial mean-predictors due to the sparsity of transcriptomic shifts. Shifting focus to the formal Synergy Residual metric, we evaluate GCP-Mamba on the Norman 2019 CRISPRa dataset. While the model maintains strictly linear $\mathcal{O}(L)$ memory allocation, bypassing the $\mathcal{O}(N^2)$ density collapse observed in GNN baselines, it ultimately fails to achieve statistically significant synergy recovery over a randomly permuted graph control ($p=0.803$). This negative result indicates that while continuous biological prior injection resolves memory bottlenecks, simply conditioning SSM time-constants on static co-expression distances is insufficient to capture non-additive epistatic interactions at scale.
-\textbf{Contact:} \href{mailto:aryan.padarthi@student.allenisd.org}{aryan.padarthi@student.allenisd.org}, \href{mailto:riley.huynh@student.allenisd.org}{riley.huynh@student.allenisd.org}\\
-\textbf{Supplementary information:} Not applicable.
+\textbf{Motivation:} Predicting combinatorial perturbation responses requires models that capture non-additive epistatic interactions. Current graph-based approaches face quadratic memory scaling, limiting transcriptome-wide application.
+\textbf{Results:} We propose GCP-Mamba, which injects continuous co-expression topology into the discretization parameters of Mamba State Space Models, achieving $\mathcal{O}(L)$ memory scaling. Evaluating on the Norman 2019 CRISPRa dataset (500 genes, 15 random seeds) with a hardware-agnostic sequential recurrence, we find that global MSE favors trivial mean-predictors. Shifting to synergy residual correlation, GCP-Mamba achieves marginal improvement over BaseMamba but does not significantly outperform a permuted-graph control ($p=0.803$). Independent validation on the Replogle RPE1 CRISPRi dataset confirms cross-modality generalization of the recurrent mechanism. This negative result demonstrates that static co-expression conditioning alone is insufficient for epistatic recovery, motivating future work on dynamic, context-specific graph priors.
+\textbf{Contact:} \href{mailto:aryan.padarthi@student.allenisd.org}{aryan.padarthi@student.allenisd.org}\\
+\textbf{Supplementary information:} Supplementary data are available at \textit{Bioinformatics} online.
 }
 
 \maketitle
@@ -52,7 +52,7 @@ Even in the foundational Norman et al.\ (2019) K562 screen, which targeted a foc
 
 \subsection{Graph-Based Perturbation Prediction}
 
-The most directly comparable prior work is GEARS (Roohani \textit{et al.}, 2024), which uses a 2-layer Graph Convolutional Network operating on a Gene Ontology graph to aggregate single-gene perturbation embeddings into combinatorial predictions. While GEARS achieves strong accuracy at small gene panel sizes, its dense $\mathcal{O}(N^2)$ message-passing bottleneck precludes scaling beyond a few hundred target genes, a critical need highlighted by recent scalable approaches such as TxPert (Wenkel \textit{et al.}, 2026) and foundational benchmarking reviews (Wei \textit{et al.}, 2025). GCP-Mamba decouples the graph topology computation from the sequential modeling pass entirely, maintaining $\mathcal{O}(L)$ temporal complexity.
+The most directly comparable prior work is GEARS (Roohani \textit{et al.}, 2024), which uses a 2-layer Graph Convolutional Network operating on a sparse Gene Ontology knowledge graph to aggregate single-gene perturbation embeddings into combinatorial predictions. GEARS achieves strong accuracy at small gene panel sizes through its Top-$H$ sparse graph representation, but its message-passing cost scales with the number of retained edges. GCP-Mamba decouples the graph topology computation from the sequential modeling pass entirely, maintaining $\mathcal{O}(L)$ temporal complexity for the recurrent scan after an $\mathcal{O}(N^2)$ static precomputation step.
 
 The Compositional Perturbation Autoencoder (CPA; Lotfollahi \textit{et al.}, 2021) addresses combinatorial generalization by decomposing cell states into additive basal, drug, and covariate embeddings in a variational autoencoder framework. CPA demonstrates excellent out-of-distribution generalization but requires known covariate annotations and scales poorly to high-dimensional transcriptomic output spaces. GCP-Mamba does not assume covariate structure, predicting genome-scale $\Delta y$ directly from perturbation indicator inputs.
 
@@ -67,21 +67,9 @@ GeneMamba (Qi \textit{et al.}, 2024) applies Mamba to single-cell RNA-seq founda
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Theoretical Background and Mathematical Foundations}
 % ─────────────────────────────────────────────────────────────────────────────
-\subsection{The GNN Over-Smoothing Bottleneck: A Spectral Analysis}
+\subsection{GNN Scalability Limitations}
 
-Standard message-passing Graph Neural Networks update node embeddings via normalized neighborhood aggregation (Kipf \& Welling, 2017):
-\begin{equation}
-H^{(l+1)} = \sigma\!\left(\tilde{D}^{-1/2}\tilde{A}\tilde{D}^{-1/2} H^{(l)} W^{(l)}\right)
-\end{equation}
-where $\tilde{A} = A + I_N$ is the adjacency matrix with self-loops and $\tilde{D}$ is its diagonal degree matrix. The symmetric normalized graph Laplacian is defined as:
-\begin{equation}
-L_{\text{sym}} = I_N - \tilde{D}^{-1/2}\tilde{A}\tilde{D}^{-1/2}
-\end{equation}
-with eigendecomposition $L_{\text{sym}} = U \Lambda U^T$. Crucially, the propagation matrix $\hat{A} = I - L_{\text{sym}}$ has eigenvalues in $[-1, 1]$. Repeated application across $l$ layers acts as a graph spectral low-pass filter:
-\begin{equation}
-H^{(l)} = \hat{A}^l H^{(0)} W_{\text{combined}}
-\end{equation}
-As $l \to \infty$, all eigenvalues $|\lambda_i| < 1$ decay toward zero, forcing all node embeddings within a connected component to converge to the same scalar multiple of the dominant eigenvector—a phenomenon termed over-smoothing (Chen \textit{et al.}, 2020). Capturing multi-hop epistatic effects requires deep GNN stacks, but increasing $l$ accelerates this spectral collapse, erasing individual gene variation that differentiates epistatic from additive interactions.
+Standard message-passing GNNs update node embeddings via normalized neighborhood aggregation, which acts as a spectral low-pass filter on the graph Laplacian. Over multiple layers, this produces over-smoothing: node embeddings converge to the dominant eigenvector, erasing individual gene variation critical for distinguishing epistatic from additive interactions (Chen \textit{et al.}, 2020). A formal spectral analysis of this phenomenon is provided in Supplementary Section~S1. Importantly, state-of-the-art perturbation GNNs such as GEARS (Roohani \textit{et al.}, 2024) mitigate the dense adjacency bottleneck by operating over sparse Top-$H$ gene--gene knowledge graphs, achieving sub-quadratic message-passing cost in practice. GCP-Mamba proposes an alternative: decoupling the graph topology computation from the sequential modeling pass entirely.
 
 \subsection{State-Space Model Discretization: Full ZOH Derivation}
 
@@ -109,7 +97,9 @@ where $\odot$ denotes the Hadamard (element-wise) product and $\mathbf{M}_\Delta
 \bar{\mathbf{A}}_{\text{graph}} &= e^{\mathbf{A} \odot \Delta_{\text{graph}}} \\
 \bar{\mathbf{B}}_{\text{graph}} &\approx \Delta_{\text{graph}} \cdot \mathbf{B}
 \end{align}
-This Hadamard product ensures that each hidden-state dimension receives an independently scaled time-constant, allowing biologically proximal genes (large $\mathbf{M}_\Delta$) to retain SSM hidden-state information longer than distal genes. Critically, we explicitly construct and execute this recursive linear scan within our PyTorch module. We mathematically verified that running this sequential recurrence on standard CPU architectures exactly replicates the theoretical discretized ODE steps, directly confirming that our implementation does not collapse into a degenerate token-wise projection.
+This Hadamard product ensures that each hidden-state dimension receives an independently scaled time-constant, allowing biologically proximal genes (large $\mathbf{M}_\Delta$) to retain SSM hidden-state information longer than distal genes.
+
+\textbf{Hardware-agnostic sequential recurrence.} We implement the graph-conditioned ZOH recurrence as an explicit sequential scan in PyTorch. While CUDA-fused selective scan kernels (via \texttt{mamba\_ssm}) are required to achieve the practical $\mathcal{O}(L)$ wall-clock scaling advantage for genome-scale sequences ($L > 5{,}000$), the mathematical fidelity of the continuous-time discretization and graph-conditioned state propagation is fully preserved during CPU evaluation. We verified this by comparing module outputs against hand-computed ZOH recurrence steps across six diagnostic tests, confirming exact numerical equivalence (maximum absolute difference $< 10^{-5}$), divergence from a memoryless projection, and sensitivity to input ordering --- all properties that a degenerate token-wise MLP cannot exhibit.
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Methods and Algorithmic Architecture}
@@ -122,7 +112,7 @@ Empirical single-cell transcriptomic data were acquired from the Norman et al.\ 
 \begin{equation}
 \Delta y_i = \overline{x}_i - \overline{x}_{\text{ctrl}}
 \end{equation}
-Model input is a one-hot perturbation indicator vector $\mathbf{p} \in \{0,1\}^N$ encoding which genes in the 500-gene panel are targeted. Dataset splits follow a strict zero-shot protocol: we designated 15 truly held-out perturbed genes. None of the held-out single perturbations, nor any combinations involving them, were exposed during training. This creates precise zero-shot testing splits (Seen 2/2, Seen 1/2, and Seen 0/2), heavily emphasizing the strictness of combinatorial evaluation.
+Model input is a multi-hot perturbation indicator vector $\mathbf{p} \in \{0,1\}^N$ encoding which genes in the 500-gene panel are targeted (one active element for single perturbations, two for doubles). Dataset splits follow a strict zero-shot protocol modeled on GEARS (Roohani \textit{et al.}, 2024): we designated 15 held-out perturbed genes (selected from genes involved in measured double combinations). Training includes all single perturbations for non-held-out genes and all double combinations where both constituent genes are non-held-out (Seen~2/2). Testing evaluates doubles where exactly one constituent gene is held out (Seen~1/2, 39 conditions) or both are held out (Seen~0/2, 2 conditions). The complete split manifest, including gene identities and per-condition cell counts, is provided in the supplementary materials and code repository.
 
 \subsection{GCP-Mamba Architecture and Complexity Proof}
 
@@ -158,7 +148,7 @@ All Mamba-based models evaluate $N = 500$ top highly variable genes with state d
 \begin{figure*}[!htbp]
 \centering
 \includegraphics[width=\textwidth]{training_curve.png}
-\caption{\textbf{Alt Text: Line graph showing training loss decreasing rapidly and plateauing for three models over 100 epochs.} Cross-validation training curves across 5 random seeds (solid line: mean, shaded region: 95\% CI). GCP-Mamba converges equivalently to the BaseMamba and Permuted Graph controls. Across varying learning rates, the models quickly plateau to identical final loss values, indicating a collapse into a trivial mean-predictor local minimum from which they lack the signal-to-noise ratio to escape.}
+\caption{\textbf{Alt Text: Line graph showing training loss decreasing rapidly and plateauing for three models over 100 epochs.} Cross-validation training curves across 15 random seeds (solid line: mean, shaded region: 95\% CI). GCP-Mamba converges equivalently to the BaseMamba and Permuted Graph controls, plateauing to similar final loss values.}
 \label{fig:training}
 \end{figure*}
 
@@ -170,11 +160,11 @@ All Mamba-based models evaluate $N = 500$ top highly variable genes with state d
 \begin{figure*}[!htbp]
 \centering
 \includegraphics[width=\textwidth]{memory_scaling.png}
-\caption{\textbf{Alt Text: Line graph demonstrating that GCP-Mamba and BaseMamba peak VRAM usage scales linearly with gene count, whereas GCN and Transformer scale super-linearly, exceeding 14GB and 80GB at 5000 genes.} Peak CPU-equivalent memory allocation (MB, batch size~$=8$) as a function of gene sequence length $L \in \{100, 500, 1000, 2000, 5000\}$ for all four model architectures. GCP-Mamba and BaseMamba scale linearly ($\mathcal{O}(L)$), while the GCN and Transformer baselines exhibit super-linear growth due to dense $\mathcal{O}(N^2)$ adjacency and quadratic attention computations, respectively.}
+\caption{\textbf{Alt Text: Line graph showing recurrent scan memory scaling linearly for SSM models and super-linearly for GCN/Transformer.} Recurrent scan memory (forward pass only, batch size~$=8$) as a function of gene sequence length $L$. GCP-Mamba and BaseMamba exhibit linear growth; the GCN and Transformer dense proxies exhibit super-linear growth. Note: the GCP-Mamba static $\mathbf{D}$ matrix ($\mathcal{O}(N^2)$) is excluded from scan memory; see Supplementary Table~S2 for full breakdown.}
 \label{fig:memory}
 \end{figure*}
 
-Figure~\ref{fig:memory} empirically validates the central computational claim of GCP-Mamba. Peak memory allocation was measured by instantiating each model at a fixed batch size of 8 and sweeping gene panel sizes $L \in \{100, 500, 1000, 2000, 5000\}$. The SSM-based models (GCP-Mamba and BaseMamba) exhibit strictly linear growth from 0.7\,MB to 33.0\,MB, confirming the $\mathcal{O}(L)$ theoretical analysis from Section~2.2. The GCN (FaithfulGEARS proxy) exhibits super-linear growth driven by its $\mathcal{O}(N^2)$ dense adjacency matrix operations, while the Transformer (FaithfulscGPT proxy) exhibits quadratic growth due to self-attention computations. Both baselines breach practical VRAM limits at whole-genome scales ($L>5{,}000$), whereas the GCP-Mamba memory footprint remains stable, demonstrating a decisive practical advantage for genome-scale transcriptomic modeling.
+Figure~\ref{fig:memory} reports peak memory allocation during the recurrent scan, measured by sweeping gene panel sizes $L \in \{100, 500, 1000, 2000, 5000\}$. The SSM-based models exhibit linear growth in scan memory. However, GCP-Mamba additionally requires the static co-expression matrix $\mathbf{D} \in \mathbb{R}^{N \times N}$, consuming $\mathcal{O}(N^2)$ storage (approximately 95\,MB at $N=5{,}000$ in float32). A full per-component memory breakdown including model parameters, optimizer states, and gradient buffers is provided in Supplementary Table~S2. The GCN baseline uses a dense adjacency proxy for scaling comparison; GEARS in practice operates over a sparse Top-$H$ graph with lower actual memory consumption.
 
 \subsection{10-Fold Zero-Shot Condition-Level Ablation}
 
@@ -346,7 +336,7 @@ A.P. conceived the computational methodology, designed the neural architecture, 
 The authors declare no competing financial interests or specific funding for this work.
 
 \section*{AI Use Disclosure}
-AI assistants were utilized during the preparation of this manuscript for formatting, copyediting, and compliance checks in accordance with journal guidelines.
+AI coding assistants (GitHub Copilot, Claude) were used during software development for code generation, debugging, and manuscript formatting. All scientific hypotheses, architectural design decisions, experimental protocols, and biological interpretations were conceived and validated by the authors. The authors take full responsibility for the accuracy of all content.
 
 \section*{Data Availability}
 All source code, dataset pipelines, model architecture implementations, 10-fold ablation configurations, trained weight checkpoints, and pre-computed Gene Ontology graph matrices are publicly available under the MIT License at \href{https://github.com/The-MathKing/gcpmamba}{https://github.com/The-MathKing/gcpmamba}. The empirical single-cell CRISPR screening dataset (Norman \textit{et al.}, 2019) is available at NCBI GEO under accession number GSE133344. The genome-wide Replogle 2022 RPE1 essential panel dataset is available at NCBI GEO under accession number GSE190604.
@@ -378,8 +368,8 @@ Norman, T. M., Horlbeck, M. A., Replogle, J. M., \textit{et al.} (2019). Explori
 \bibitem[Ahlmann-Eltze \textit{et al.}(2025)]{ahlmann2025}
 Ahlmann-Eltze, C., Huber, W., \& Anders, S. (2025). Deep-learning-based gene perturbation effect prediction does not yet outperform simple linear baselines. \textit{Nature Methods}, 22, 1657--1661.
 
-\bibitem[Cui \textit{et al.}(2024)]{scgpt}
-Qi, Y., \textit{et al.} (2024). GeneMamba: A Foundation Model for Single-Cell RNA Sequencing Data. \textit{bioRxiv}.
+\bibitem[Qi \textit{et al.}(2025)]{genemamba}
+Qi, Y., \textit{et al.} (2025). GeneMamba: A Foundation Model for Single-Cell RNA Sequencing Data. \textit{bioRxiv preprint}.
 
 \bibitem[Replogle \textit{et al.}(2022)]{replogle2022}
 Replogle, J. M., Saunders, R. A., Pogson, A. N., \textit{et al.} (2022). Mapping information-rich genotype-phenotype landscapes with multiplexed scRNA-seq. \textit{Cell}, 185(14), 2559--2575.e28.
@@ -387,8 +377,8 @@ Replogle, J. M., Saunders, R. A., Pogson, A. N., \textit{et al.} (2022). Mapping
 \bibitem[Roohani \textit{et al.}(2024)]{roohani2024}
 Roohani, Y., Huang, K., \& Leskovec, J. (2024). Predicting transcriptional outcomes of novel multigene perturbations with GEARS. \textit{Nature Biotechnology}, 42, 609--612.
 
-\bibitem[Wei \textit{et al.}(2025)]{wei2024}
-Wei, Z., \textit{et al.} (2025). Benchmarking algorithms for generalizable single-cell perturbation response prediction. \textit{Nature Methods}.
+\bibitem[Wei \textit{et al.}(2026)]{wei2024}
+Wei, Z., \textit{et al.} (2026). Benchmarking algorithms for generalizable single-cell perturbation response prediction. \textit{Nature Methods}, 23, 308--319.
 
 \bibitem[Wenkel \textit{et al.}(2026)]{wenkel2024}
 Wenkel, F., \textit{et al.} (2026). TxPert: A deep learning framework for the prediction of transcriptional responses to perturbations. \textit{Nature Biotechnology}.

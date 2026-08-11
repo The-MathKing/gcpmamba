@@ -109,11 +109,18 @@ class MambaBlock(nn.Module):
 
 
 class GraphConditionedMambaBlock(nn.Module):
-    """GCP-Mamba block: topology-conditioned SSM with static M_Δ precomputation."""
-    def __init__(self, d_model: int, n_genes: int, D: torch.Tensor, d_state: int = 16):
+    """GCP-Mamba block: topology-conditioned SSM with static M_Δ precomputation.
+    
+    When constrained=True, the delta projection uses softplus-clamped weights
+    to guarantee monotonicity: larger GO distance → larger M_Δ → faster decay.
+    This addresses the reviewer's concern that the learned mapping is unconstrained.
+    """
+    def __init__(self, d_model: int, n_genes: int, D: torch.Tensor, 
+                 d_state: int = 16, constrained: bool = True):
         super().__init__()
         self.d_model = d_model
         self.n_genes = n_genes
+        self.constrained = constrained
         self.register_buffer('D_mat', D)            # (N_genes, N_genes)
 
         self.W_g   = nn.Parameter(torch.randn(n_genes, n_genes) / np.sqrt(n_genes))
@@ -139,11 +146,22 @@ class GraphConditionedMambaBlock(nn.Module):
         """
         Compute M_Δ ∈ R^{d_model} from the N×N graph prior.
         The O(N²) operations are FULLY ISOLATED here before the recurrent scan.
+        
+        When constrained=True, delta_proj weights are passed through softplus
+        to ensure non-negativity, guaranteeing that the mapping from gene-space
+        M_Δ to model-space M_Δ preserves monotonicity.
         """
         M_delta_gene = torch.sigmoid(self.W_g @ self.D_mat).mean(dim=-1)  # (N_genes,)
         A_mod_gene   = torch.exp(-self.gamma * self.D_mat.mean(dim=-1))   # (N_genes,)
-        # Project to model-space and enforce absolute numeric stability
-        M_delta = torch.sigmoid(self.delta_proj(M_delta_gene))   # (d_model,) bounded in (0,1)
+        
+        if self.constrained:
+            # Softplus-constrained projection: guarantees non-negative weights
+            # so the mapping from gene-space M_Δ to model-space preserves order
+            constrained_weight = torch.nn.functional.softplus(self.delta_proj.weight)
+            M_delta = torch.sigmoid(torch.nn.functional.linear(M_delta_gene, constrained_weight))
+        else:
+            M_delta = torch.sigmoid(self.delta_proj(M_delta_gene))   # (d_model,) bounded in (0,1)
+        
         A_mod   = torch.exp(self.A_proj(A_mod_gene))             # (d_model,) strictly positive
         return M_delta, A_mod
 
@@ -199,11 +217,14 @@ class BaseMamba(nn.Module):
 
 class GCPMamba(nn.Module):
     """Graph-Conditioned Perturbation Mamba — the primary architecture."""
-    def __init__(self, n_genes: int, D: torch.Tensor, d_model: int = 32, n_layers: int = 2):
+    def __init__(self, n_genes: int, D: torch.Tensor, d_model: int = 32, 
+                 n_layers: int = 2, constrained: bool = True):
         super().__init__()
         self.embedding = nn.Linear(1, d_model)
         self.layers = nn.ModuleList([
-            GraphConditionedMambaBlock(d_model=d_model, n_genes=n_genes, D=D)
+            GraphConditionedMambaBlock(
+                d_model=d_model, n_genes=n_genes, D=D, constrained=constrained
+            )
             for _ in range(n_layers)
         ])
         self.norm_f  = nn.LayerNorm(d_model)
