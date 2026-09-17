@@ -1,0 +1,21 @@
+{
+  "timestamp": "2026-08-10T19:54:35.293341",
+  "config": {
+    "n_genes": 500,
+    "d_model": 32,
+    "n_layers": 1,
+    "epochs": 100,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "seeds": [
+      42,
+      43,
+      44,
+      45,
+      46
+    ],
+    "device": "cpu"
+  },
+  "graph_ablations": {
+    "GCP-Mamba (True Graph)": {
+      "mse_mean": 

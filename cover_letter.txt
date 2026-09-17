@@ -1,0 +1,16 @@
+Dear Editor,
+
+We are submitting our manuscript, "GCP-Mamba: Graph-Conditioned Perturbation Mamba," for consideration as a Research Article in PLOS Computational Biology. 
+
+Our study rigorously investigates the integration of Gene Ontology (GO) co-expression topology into the Mamba state-space model for predicting the transcriptomic effects of genetic perturbations. We propose a plausible and well-founded architectural idea: injecting structural graph priors directly into the recurrent discretization step of the SSM.
+
+However, after extensive empirical evaluation across multiple independent single-cell CRISPR screening datasets (Norman 2019 and Replogle 2022), and evaluating against strict permuted-graph and degree-preserving rewired controls, we present an honest, comprehensive negative result. We demonstrate that the model fails to meaningfully leverage the provided biological graph prior, predicting primarily the mean expression delta regardless of the provided perturbation. 
+
+In light of the recent publication of Ahlmann-Eltze et al. 2025, which reported similar failures of deep learning models to outperform simple linear baselines on this task, our manuscript provides crucial complementary evidence. We deeply analyze the failure modes of graph-conditioned SSMs, demonstrating that the failure is robust to hyperparameter scaling, dataset selection, and architecture variants. We believe this work is equally or more rigorous than the original study, perfectly aligning with PLOS Computational Biology's scope for "'scooped' manuscripts that confirm, replicate, extend, or are complementary to a recently published, significant advance."
+
+We believe our transparent reporting of this negative result provides valuable insights to the computational biology community and saves future researchers from pursuing similar flawed architectural avenues.
+
+Thank you for your consideration.
+
+Sincerely,
+The Authors

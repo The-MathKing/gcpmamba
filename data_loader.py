@@ -68,6 +68,7 @@ class DataEngine:
         print("HVGs identified.")
         
         self.gene_names = adata_train.var_names.tolist()
+        self.hugo_names = adata_train.var['gene_name'].tolist()
         
         # Now apply the HVG filter and normalization to the FULL dataset
         print("Subsetting to HVGs...")
@@ -105,8 +106,8 @@ class DataEngine:
         # Calculate condition-level pseudobulks for ALL conditions
         unique_conditions = adata.obs['condition'].unique()
         
-        # Create a mapping from gene name to index
-        gene_to_idx = {g: i for i, g in enumerate(self.gene_names)}
+        # Create a mapping from Hugo gene name to index
+        gene_to_idx = {g: i for i, g in enumerate(self.hugo_names)}
         
         cond_X_list = []
         cond_y_list = []

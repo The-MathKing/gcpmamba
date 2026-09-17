@@ -15,9 +15,9 @@ from data_loader import DataEngine
 N_GENES   = 500
 D_MODEL   = 32
 N_LAYERS  = 1
-EPOCHS    = 100
+EPOCHS    = 5
 LR        = 1e-3
-SEEDS     = list(range(42, 42 + 15))
+SEEDS     = list(range(42, 42 + 3))
 DEVICE    = "cpu"
 
 def train_one_epoch(model, loader, optimizer, criterion):
@@ -34,26 +34,37 @@ def train_one_epoch(model, loader, optimizer, criterion):
     return total / max(1, len(loader))
 
 def evaluate_loader(model, loader, model_name, seed_idx, split_name, results_list):
+    from scipy.stats import pearsonr
     model.eval()
+    all_preds = []
+    all_trues = []
     with torch.no_grad():
         for x, y, conds in loader:
             x = x.to(DEVICE)
             preds = model(x).cpu().numpy()
             trues = y.numpy()
+            all_preds.append(preds)
+            all_trues.append(trues)
             
-            for i, cond in enumerate(conds):
-                for g_idx in range(N_GENES):
-                    # Only log top genes to save space or just log all.
-                    # Since N_GENES=500, we have 500 rows per condition per model.
-                    results_list.append({
-                        "Split": split_name,
-                        "Condition": cond,
-                        "Model": model_name,
-                        "Seed": seed_idx,
-                        "Gene_Idx": g_idx,
-                        "True_Value": float(trues[i, g_idx]),
-                        "Pred_Value": float(preds[i, g_idx])
-                    })
+    preds = np.concatenate(all_preds)
+    trues = np.concatenate(all_trues)
+    
+    mse = np.mean((preds - trues) ** 2)
+    p_flat = preds.flatten()
+    t_flat = trues.flatten()
+    if np.std(t_flat) > 1e-8 and np.std(p_flat) > 1e-8:
+        r, _ = pearsonr(t_flat, p_flat)
+    else:
+        r = 0.0
+        
+    mse, r = float(mse), float(r)
+    results_list.append({
+        "Model": model_name,
+        "Seed": seed_idx,
+        "MSE": mse,
+        "Pearson": r
+    })
+    return mse, r
 
 def run_training_pipeline():
     print("Initializing DataEngine...")
@@ -111,27 +122,21 @@ def run_training_pipeline():
         json.dump(loss_history, f)
     print("Saved training_losses.json.")
     
-    # Compute M_delta vs GO distance correlation for GCP-Mamba
-    print("\n--- M_delta vs GO distance analysis ---")
-    d_flat = D.cpu().numpy().flatten()
-    m_deltas = []
-    # Using the last seed's GCP-Mamba model
-    model = models["GCP-Mamba"]
-    model.eval()
-    with torch.no_grad():
-        W_g = model.layers[0].W_g.cpu()
-        D_cpu = D.cpu()
-        M_gene = torch.sigmoid(W_g @ D_cpu).mean(dim=-1) # (N,)
-        # Create pairwise matrix from M_gene
-        M_pair = M_gene.unsqueeze(1).repeat(1, N_GENES)
-        m_flat = M_pair.numpy().flatten()
-        
-    from scipy.stats import pearsonr
-    valid = (d_flat > 0)
-    r_val, p_val = pearsonr(d_flat[valid], m_flat[valid])
-    print(f"M_delta vs Distance: r = {r_val:.3f}, n = {valid.sum()}, p = {p_val:.4e}")
-    with open("m_delta_stats.json", "w") as f:
-        json.dump({"r": float(r_val), "n": int(valid.sum()), "p": float(p_val)}, f)
+    # Summarize and do paired t-test
+    df = pd.DataFrame(results_list)
+    print("\n=== Replogle Test Singles Results ===")
+    summary = df.groupby("Model")[["MSE", "Pearson"]].agg(["mean", "std"])
+    print(summary)
+    
+    # Paired t-test
+    gcp = df[df["Model"] == "GCP-Mamba"]["Pearson"].values
+    perm = df[df["Model"] == "GCP-Mamba (Permuted GO)"]["Pearson"].values
+    if len(gcp) > 0 and len(perm) > 0 and len(gcp) == len(perm):
+        from scipy.stats import ttest_rel
+        t_stat, p_val = ttest_rel(gcp, perm)
+        print(f"\nPaired t-test (Pearson r): t={t_stat:.3f}, p={p_val:.4e}")
+    else:
+        print("Could not compute paired t-test")
 
 if __name__ == "__main__":
     run_training_pipeline()

@@ -16,28 +16,23 @@ plt.rcParams.update({
 })
 
 def calc_metrics_per_condition(df, df_additive, top_k=20):
-    # df has columns: Split, Condition, Model, Seed, Gene_Idx, True_Value, Pred_Value
     results = []
     
-    # Pre-build additive dictionary for fast lookup: (Split, Condition, Seed, Gene_Idx) -> Additive Pred_Value
-    # Note: Additive true_value is the same as the target. Additive prediction is the additive baseline.
+    # Pre-build additive dictionary for fast lookup: (Split_ID, Split, Condition, Seed, Gene_Idx) -> Additive Pred_Value
     add_dict = {}
     for _, row in df_additive.iterrows():
-        add_dict[(row['Condition'], row['Seed'], row['Gene_Idx'])] = row['Pred_Value']
+        add_dict[(row.get('Split_ID', 0), row['Condition'], row['Seed'], row['Gene_Idx'])] = row['Pred_Value']
     
     # Group by everything except Gene_Idx
-    groups = df.groupby(["Split", "Condition", "Model", "Seed"])
-    for (split, cond, model, seed), group in groups:
-        # sort by Gene_Idx to align
+    groups = df.groupby(["Split_ID", "Split", "Condition", "Model", "Seed"])
+    for (split_id, split, cond, model, seed), group in groups:
         group = group.sort_values("Gene_Idx")
         yt = group['True_Value'].values
         yp = group['Pred_Value'].values
         genes = group['Gene_Idx'].values
         
-        # Calculate MSE over all genes
         mse = np.mean((yt - yp)**2)
         
-        # Calculate Pearson over top_k differentially expressed genes
         idx = np.argsort(np.abs(yt))[-top_k:]
         yt_k = yt[idx]
         yp_k = yp[idx]
@@ -47,21 +42,18 @@ def calc_metrics_per_condition(df, df_additive, top_k=20):
         else:
             r = 0.0
             
-        # --- Synergy Metric ---
-        # Residual = Target - Additive
-        # Pred Residual = Pred - Additive
         yt_synergy = np.zeros(len(yt))
         yp_synergy = np.zeros(len(yt))
         valid_synergy = True
         for i, g in enumerate(genes):
-            if (cond, seed, g) in add_dict:
-                add_pred = add_dict[(cond, seed, g)]
+            key = (split_id, cond, seed, g)
+            if key in add_dict:
+                add_pred = add_dict[key]
                 yt_synergy[i] = yt[i] - add_pred
                 yp_synergy[i] = yp[i] - add_pred
+        
         synergy_magnitude = np.mean(np.abs(yt_synergy))
                 
-        # Only compute synergy correlation if it's a combinatorial condition (has a valid additive baseline)
-        # Also explicitly exclude trivial baselines that predict constants or pure additive structures
         if model in ["Additive", "Condition Mean", "Linear"]:
             r_syn = np.nan
         elif valid_synergy and '+' in cond and np.std(yt_synergy) > 1e-6 and np.std(yp_synergy) > 1e-6:
@@ -70,6 +62,7 @@ def calc_metrics_per_condition(df, df_additive, top_k=20):
             r_syn = np.nan
             
         results.append({
+            "Split_ID": split_id,
             "Split": split,
             "Condition": cond,
             "Model": model,
@@ -82,7 +75,6 @@ def calc_metrics_per_condition(df, df_additive, top_k=20):
         
     df_res = pd.DataFrame(results)
     
-    # Classify as high/low synergy for doubles
     df_doubles = df_res[df_res['Condition'].str.contains('\+')]
     if len(df_doubles) > 0:
         median_mag = df_doubles['Synergy_Magnitude'].median()
@@ -92,46 +84,92 @@ def calc_metrics_per_condition(df, df_additive, top_k=20):
         
     return df_res
 
+def bootstrap_ci(data, n_bootstraps=1000, alpha=0.05):
+    """Compute bootstrap CI for the mean."""
+    if len(data) == 0:
+        return 0.0, 0.0
+    data = np.array(data)
+    bootstrapped_means = np.zeros(n_bootstraps)
+    for i in range(n_bootstraps):
+        sample = np.random.choice(data, size=len(data), replace=True)
+        bootstrapped_means[i] = np.mean(sample)
+    lower = np.percentile(bootstrapped_means, 100 * (alpha / 2))
+    upper = np.percentile(bootstrapped_means, 100 * (1 - alpha / 2))
+    return lower, upper
+
 def generate_figures():
-    print("Loading predictions.csv...")
-    df_raw = pd.read_csv("predictions.csv")
-    
-    # Extract additive predictions
+    print("Loading canonical_predictions.csv...")
+    try:
+        df_raw = pd.read_csv("canonical_predictions.csv")
+    except FileNotFoundError:
+        df_raw = pd.read_csv("predictions.csv")
+        
+    if 'Split_ID' not in df_raw.columns:
+        df_raw['Split_ID'] = 0
+        
     df_additive = df_raw[df_raw['Model'] == 'Additive']
     
     print("Calculating condition-level metrics...")
     df_metrics = calc_metrics_per_condition(df_raw, df_additive, top_k=20)
     
-    # We want to aggregate over Condition AND Seed to get final model performance per split.
-    df_seed_agg = df_metrics.groupby(["Split", "Model", "Seed"])[["MSE", "Pearson", "Synergy_Pearson"]].mean(numeric_only=True).reset_index()
+    # We aggregate over Condition, Seed, Split_ID
+    # But we want to pool across Split_IDs and Conditions for the final evaluation
+    # So we group by Split, Model, Seed to get the mean for each seed, then across seeds
+    # Wait, the reviewer asked for condition-level bootstrap CIs on the pooled conditions.
     
-    # Then aggregate over Seed (mean and std dev / CI across seeds)
-    df_final = df_seed_agg.groupby(["Split", "Model"]).agg(
-        MSE_mean=("MSE", "mean"),
-        MSE_std=("MSE", "std"),
-        Pearson_mean=("Pearson", "mean"),
-        Pearson_std=("Pearson", "std"),
-        Synergy_mean=("Synergy_Pearson", "mean"),
-        Synergy_std=("Synergy_Pearson", "std"),
-        n_seeds=("Seed", "count")
+    # Group by Split, Model to get all conditions across all seeds and splits
+    # We want to treat each (Condition, Split_ID) as an independent observation for the condition-level evaluation.
+    # To get the prediction for a condition, we can average over the 3 seeds first.
+    
+    df_seed_mean = df_metrics.groupby(["Split_ID", "Split", "Condition", "Model", "Stratum"]).agg(
+        MSE=("MSE", "mean"),
+        Pearson=("Pearson", "mean"),
+        Synergy_Pearson=("Synergy_Pearson", "mean")
     ).reset_index()
     
-    # Calculate 95% CI
-    t_val = st.t.ppf(0.975, df_final['n_seeds'] - 1)
-    df_final['MSE_ci'] = t_val * df_final['MSE_std'] / np.sqrt(df_final['n_seeds'])
-    df_final['Pearson_ci'] = t_val * df_final['Pearson_std'] / np.sqrt(df_final['n_seeds'])
-    df_final['Synergy_ci'] = t_val * df_final['Synergy_std'] / np.sqrt(df_final['n_seeds'])
+    df_final_list = []
     
-    print("\n=== FINAL RESULTS (Pooled) ===")
+    # For each split and model, pool all (Condition, Split_ID) pairs
+    groups = df_seed_mean.groupby(["Split", "Model"])
+    for (split, model), group in groups:
+        n_conditions = len(group)
+        mse_vals = group["MSE"].dropna().values
+        pearson_vals = group["Pearson"].dropna().values
+        synergy_vals = group["Synergy_Pearson"].dropna().values
+        
+        mse_mean = np.mean(mse_vals) if len(mse_vals) > 0 else 0
+        pearson_mean = np.mean(pearson_vals) if len(pearson_vals) > 0 else 0
+        synergy_mean = np.mean(synergy_vals) if len(synergy_vals) > 0 else 0
+        
+        mse_ci_l, mse_ci_u = bootstrap_ci(mse_vals)
+        pearson_ci_l, pearson_ci_u = bootstrap_ci(pearson_vals)
+        synergy_ci_l, synergy_ci_u = bootstrap_ci(synergy_vals)
+        
+        # Approximate CI half-width for backward compatibility with plotting script
+        mse_ci = (mse_ci_u - mse_ci_l) / 2.0
+        pearson_ci = (pearson_ci_u - pearson_ci_l) / 2.0
+        synergy_ci = (synergy_ci_u - synergy_ci_l) / 2.0
+        
+        df_final_list.append({
+            "Split": split,
+            "Model": model,
+            "MSE_mean": mse_mean,
+            "Pearson_mean": pearson_mean,
+            "Synergy_mean": synergy_mean,
+            "MSE_ci": mse_ci,
+            "Pearson_ci": pearson_ci,
+            "Synergy_ci": synergy_ci,
+            "n_conditions": n_conditions
+        })
+        
+    df_final = pd.DataFrame(df_final_list)
+    
+    print("\n=== FINAL RESULTS (Pooled Conditions) ===")
     print(df_final.to_string(index=False))
-    
     df_final.to_csv("final_metrics.csv", index=False)
     
     print("\n=== ABLATION TABLE (NicheDeSig Table 4 Style) ===")
-    # NicheDeSig table 4 format: BaseMamba, GCP-Mamba, Permuted, etc.
-    # Stratified by high vs low synergy
-    df_stratum = df_metrics.groupby(["Split", "Stratum", "Model", "Seed"])[["MSE", "Pearson", "Synergy_Pearson"]].mean(numeric_only=True).reset_index()
-    df_stratum_final = df_stratum.groupby(["Split", "Stratum", "Model"]).agg(
+    df_stratum_final = df_seed_mean.groupby(["Split", "Stratum", "Model"]).agg(
         MSE=("MSE", "mean"),
         Pearson=("Pearson", "mean"),
         Synergy=("Synergy_Pearson", "mean")
@@ -140,65 +178,24 @@ def generate_figures():
     print(df_stratum_final.to_string(index=False))
     df_stratum_final.to_csv("ablation_table_stratified.csv", index=False)
     
-    # Generate Bar Chart
-    sns.set_theme(style="whitegrid", font_scale=1.1)
-    
-    splits = ["Seen 2/2", "Seen 1/2", "Seen 0/2"]
-    
-    # Filter to only the main models for the chart
-    models_to_plot = ["Additive", "Condition Mean", "Linear", "GEARS", "BaseMamba", "GCP-Mamba (Permuted GO)", "GCP-Mamba"]
-    
-    fig, axes = plt.subplots(1, 3, figsize=(20, 6))
-    
-    for i, metric in enumerate(["MSE_mean", "Pearson_mean", "Synergy_mean"]):
-        ax = axes[i]
-        
-        x = np.arange(len(splits))
-        width = 0.8 / len(models_to_plot)
-        
-        for j, model in enumerate(models_to_plot):
-            model_data = df_final[df_final["Model"] == model]
-            
-            means = []
-            cis = []
-            for split in splits:
-                row = model_data[model_data["Split"] == split]
-                if not row.empty:
-                    means.append(row[metric].values[0])
-                    cis.append(row[metric.replace("_mean", "_ci")].values[0])
-                else:
-                    means.append(0)
-                    cis.append(0)
-                    
-            offset = (j - len(models_to_plot)/2) * width + width/2
-            ax.bar(x + offset, means, width, label=model, yerr=cis, capsize=3)
-            
-        ax.set_xticks(x)
-        ax.set_xticklabels(splits)
-        
-        if metric == "MSE_mean":
-            ax.set_title("MSE (All Genes)")
-        elif metric == "Pearson_mean":
-            ax.set_title("Pearson Correlation (Top 20 DEGs)")
-        else:
-            ax.set_title("Synergy Recovery (Residual Correlation)")
-            
-        if i == 0:
-            ax.legend(fontsize=10)
-            
-    plt.tight_layout()
-    plt.savefig("benchmarking_results.png", dpi=300)
-    print("Saved benchmarking_results.png")
-    
     # Perform Paired t-test for Synergy Metric: GCP-Mamba vs GCP-Mamba (Permuted GO)
     print("\n--- Statistical Test: Synergy Recovery (Seen 0/2) ---")
-    df_seen0 = df_seed_agg[df_seed_agg["Split"] == "Seen 0/2"]
-    gcp_syn = df_seen0[df_seen0["Model"] == "GCP-Mamba"]["Synergy_Pearson"].values
-    perm_syn = df_seen0[df_seen0["Model"] == "GCP-Mamba (Permuted GO)"]["Synergy_Pearson"].values
+    df_seen0 = df_seed_mean[df_seed_mean["Split"] == "Seen 0/2"]
+    
+    # Ensure they are aligned by Condition and Split_ID
+    gcp_data = df_seen0[df_seen0["Model"] == "GCP-Mamba"].set_index(["Split_ID", "Condition"])["Synergy_Pearson"]
+    perm_data = df_seen0[df_seen0["Model"] == "GCP-Mamba (Permuted)"].set_index(["Split_ID", "Condition"])["Synergy_Pearson"]
+    
+    # Merge to align exactly
+    aligned = pd.merge(gcp_data, perm_data, left_index=True, right_index=True, suffixes=('_gcp', '_perm'))
+    aligned = aligned.dropna()
+    
+    gcp_syn = aligned["Synergy_Pearson_gcp"].values
+    perm_syn = aligned["Synergy_Pearson_perm"].values
     
     if len(gcp_syn) > 0 and len(perm_syn) > 0:
         t_stat, p_val = st.ttest_rel(gcp_syn, perm_syn)
-        print(f"Paired t-test (N={len(gcp_syn)} seeds): t={t_stat:.3f}, p={p_val:.4e}")
+        print(f"Paired t-test (N={len(gcp_syn)} pooled conditions): t={t_stat:.3f}, p={p_val:.4e}")
     else:
         print("Could not compute t-test.")
 

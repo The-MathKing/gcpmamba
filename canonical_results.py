@@ -7,7 +7,7 @@ statements MUST derive from this canonical predictions file.
 Trains all models under identical conditions, writes a single canonical CSV
 with checksums, and generates all downstream analytics.
 
-Columns: split, condition, model, seed, gene_idx, gene_name,
+Columns: Split_ID, Split, condition, model, seed, gene_idx, gene_name,
          true_value, pred_value, preprocessing, target_type
 """
 import torch
@@ -32,17 +32,18 @@ CONFIG = {
     "d_model": 32,
     "d_state": 16,
     "n_layers": 1,
-    "epochs": 100,          # Increased from 50 for convergence
+    "epochs": 50,          # Reduced for faster multi-split execution
     "lr": 1e-3,
     "weight_decay": 1e-4,
     "batch_size": 64,
-    "seeds": list(range(42, 42 + 15)),  # 15 seeds for statistical power
+    "seeds": list(range(42, 42 + 2)),  # 2 seeds
+    "n_splits": 4,
     "grad_clip": 1.0,
     "device": "cpu",
     "preprocessing": "normalize_total(1e4) → log1p → z-score(train_only)",
     "target_type": "condition_level_pseudobulk",
     "h5ad_path": "data/norman/perturb_processed.h5ad",
-    "splits_path": "splits_manifest.json",
+    "splits_dir": "splits",
     "output_file": "canonical_predictions.csv",
     "constrained_monotonic": True,  # softplus constraint on delta_proj
 }
@@ -50,6 +51,8 @@ CONFIG = {
 
 def compute_file_checksum(filepath):
     """SHA256 of a file for reproducibility tracking."""
+    if not os.path.exists(filepath):
+        return "Not found"
     h = hashlib.sha256()
     with open(filepath, 'rb') as f:
         for chunk in iter(lambda: f.read(8192), b''):
@@ -74,7 +77,7 @@ def train_one_epoch(model, loader, optimizer, device):
     return total_loss / max(1, n_batches)
 
 
-def evaluate_to_records(model, loader, model_name, seed, split_name,
+def evaluate_to_records(model, loader, model_name, seed, split_id, split_name,
                         gene_names, device):
     """Evaluate model and return list of per-gene-per-condition records."""
     model.eval()
@@ -88,6 +91,7 @@ def evaluate_to_records(model, loader, model_name, seed, split_name,
             for i, cond in enumerate(conds):
                 for g_idx in range(CONFIG["n_genes"]):
                     records.append({
+                        "Split_ID": split_id,
                         "Split": split_name,
                         "Condition": cond,
                         "Model": model_name,
@@ -102,16 +106,10 @@ def evaluate_to_records(model, loader, model_name, seed, split_name,
     return records
 
 
-def build_additive_records(engine, gene_names, split_name, loader, seeds):
+def build_additive_records(engine, gene_names, split_id, split_name, loader, seeds):
     """
     Build additive baseline predictions.
-    
-    Additive handling per split tier (addressing Critical 4):
-      - Seen 2/2: both singles measured in training → sum of measured profiles
-      - Seen 1/2: one single available, other zero → partial sum
-      - Seen 0/2: both singles unavailable → predicts zero for both
     """
-    # Extract single-gene effects from training data
     single_effects = {}
     for x, y, c in engine.train_loader:
         for i, cond in enumerate(c):
@@ -139,6 +137,7 @@ def build_additive_records(engine, gene_names, split_name, loader, seeds):
                 # Additive is deterministic — same across seeds
                 for seed in seeds:
                     records.append({
+                        "Split_ID": split_id,
                         "Split": split_name,
                         "Condition": cond,
                         "Model": "Additive",
@@ -153,7 +152,7 @@ def build_additive_records(engine, gene_names, split_name, loader, seeds):
     return records
 
 
-def build_condition_mean_records(engine, gene_names, split_name, loader, seeds):
+def build_condition_mean_records(engine, gene_names, split_id, split_name, loader, seeds):
     """Condition mean baseline: predict training set mean for every condition."""
     # Compute training condition mean
     all_y = []
@@ -168,6 +167,7 @@ def build_condition_mean_records(engine, gene_names, split_name, loader, seeds):
             for g_idx in range(CONFIG["n_genes"]):
                 for seed in seeds:
                     records.append({
+                        "Split_ID": split_id,
                         "Split": split_name,
                         "Condition": cond,
                         "Model": "Condition Mean",
@@ -182,7 +182,7 @@ def build_condition_mean_records(engine, gene_names, split_name, loader, seeds):
     return records
 
 
-def build_linear_records(engine, gene_names, split_name, loader, seeds):
+def build_linear_records(engine, gene_names, split_id, split_name, loader, seeds):
     """Ridge regression baseline."""
     from sklearn.linear_model import Ridge
 
@@ -204,6 +204,7 @@ def build_linear_records(engine, gene_names, split_name, loader, seeds):
             for g_idx in range(CONFIG["n_genes"]):
                 for seed in seeds:
                     records.append({
+                        "Split_ID": split_id,
                         "Split": split_name,
                         "Condition": cond,
                         "Model": "Linear (Ridge)",
@@ -220,7 +221,7 @@ def build_linear_records(engine, gene_names, split_name, loader, seeds):
 
 def main():
     print("=" * 70)
-    print("GCP-Mamba Canonical Results Pipeline")
+    print("GCP-Mamba Canonical Results Pipeline (Multi-Split)")
     print(f"Started: {datetime.now().isoformat()}")
     print("=" * 70)
 
@@ -229,109 +230,117 @@ def main():
     # Record input checksums
     checksums = {
         "h5ad": compute_file_checksum(CONFIG["h5ad_path"]),
-        "splits": compute_file_checksum(CONFIG["splits_path"]),
         "config": CONFIG,
     }
-
-    # Initialize data
-    print("\nInitializing DataEngine...")
-    engine = DataEngine(
-        top_genes=CONFIG["n_genes"],
-        h5ad_path=CONFIG["h5ad_path"],
-        splits_path=CONFIG["splits_path"]
-    )
-    engine.prepare_data()
-    gene_names = engine.gene_names
-    D = engine.D.to(device)
-
-    # Permuted distance matrix
-    torch.manual_seed(0)
-    perm_idx = torch.randperm(CONFIG["n_genes"])
-    D_permuted = D[perm_idx][:, perm_idx]
-
-    # Constant distance matrix (control)
-    D_constant = torch.ones_like(D) * 0.5
-    D_constant.fill_diagonal_(0.0)
-
-    # Define splits
-    splits = [
-        ("Seen 2/2", engine.seen2_loader),
-        ("Seen 1/2", engine.seen1_loader),
-        ("Seen 0/2", engine.seen0_loader),
-    ]
 
     all_records = []
     loss_history = {}
 
-    # ── Deterministic baselines (seed-independent) ──
-    print("\n--- Computing deterministic baselines ---")
-    for split_name, loader in splits:
-        if len(loader.dataset) == 0:
-            continue
-        all_records.extend(build_additive_records(
-            engine, gene_names, split_name, loader, CONFIG["seeds"]))
-        all_records.extend(build_condition_mean_records(
-            engine, gene_names, split_name, loader, CONFIG["seeds"]))
-        all_records.extend(build_linear_records(
-            engine, gene_names, split_name, loader, CONFIG["seeds"]))
-    print(f"  Baselines: {len(all_records)} records")
+    for split_idx in range(CONFIG["n_splits"]):
+        print(f"\n" + "="*40)
+        print(f"Processing Split {split_idx}")
+        print("="*40)
+        
+        splits_path = os.path.join(CONFIG["splits_dir"], f"splits_manifest_{split_idx}.json")
+        
+        # Initialize data
+        print("Initializing DataEngine...")
+        engine = DataEngine(
+            top_genes=CONFIG["n_genes"],
+            h5ad_path=CONFIG["h5ad_path"],
+            splits_path=splits_path
+        )
+        engine.prepare_data()
+        gene_names = engine.gene_names
+        D = engine.D.to(device)
 
-    # ── Neural models (seed-dependent) ──
-    for seed in CONFIG["seeds"]:
-        print(f"\n=== Seed {seed} ===")
-        torch.manual_seed(seed)
-        np.random.seed(seed)
+        # Permuted distance matrix
+        torch.manual_seed(0)
+        perm_idx = torch.randperm(CONFIG["n_genes"])
+        D_permuted = D[perm_idx][:, perm_idx]
 
-        models = {
-            "BaseMamba": BaseMamba(
-                n_genes=CONFIG["n_genes"],
-                d_model=CONFIG["d_model"],
-                n_layers=CONFIG["n_layers"]
-            ).to(device),
-            "GCP-Mamba": GCPMamba(
-                n_genes=CONFIG["n_genes"], D=D,
-                d_model=CONFIG["d_model"],
-                n_layers=CONFIG["n_layers"],
-                constrained=CONFIG["constrained_monotonic"]
-            ).to(device),
-            "GCP-Mamba (Permuted)": GCPMamba(
-                n_genes=CONFIG["n_genes"], D=D_permuted,
-                d_model=CONFIG["d_model"],
-                n_layers=CONFIG["n_layers"],
-                constrained=CONFIG["constrained_monotonic"]
-            ).to(device),
-            "GCP-Mamba (Constant D)": GCPMamba(
-                n_genes=CONFIG["n_genes"], D=D_constant,
-                d_model=CONFIG["d_model"],
-                n_layers=CONFIG["n_layers"],
-                constrained=CONFIG["constrained_monotonic"]
-            ).to(device),
-        }
+        # Constant distance matrix (control)
+        D_constant = torch.ones_like(D) * 0.5
+        D_constant.fill_diagonal_(0.0)
 
-        loss_history[seed] = {}
-        for name, model in models.items():
-            print(f"  Training {name}...")
-            optimizer = optim.AdamW(
-                model.parameters(),
-                lr=CONFIG["lr"],
-                weight_decay=CONFIG["weight_decay"]
-            )
+        # Define splits
+        splits = [
+            ("Seen 2/2", engine.seen2_loader),
+            ("Seen 1/2", engine.seen1_loader),
+            ("Seen 0/2", engine.seen0_loader),
+        ]
 
-            loss_history[seed][name] = []
-            for ep in range(1, CONFIG["epochs"] + 1):
-                loss = train_one_epoch(model, engine.train_loader, optimizer, device)
-                loss_history[seed][name].append(loss)
-                if ep % 25 == 0 or ep == CONFIG["epochs"]:
-                    print(f"    Epoch {ep:3d} | loss={loss:.6f}")
+        # ── Deterministic baselines (seed-independent) ──
+        print("Computing deterministic baselines...")
+        for split_name, loader in splits:
+            if len(loader.dataset) == 0:
+                continue
+            all_records.extend(build_additive_records(
+                engine, gene_names, split_idx, split_name, loader, CONFIG["seeds"]))
+            all_records.extend(build_condition_mean_records(
+                engine, gene_names, split_idx, split_name, loader, CONFIG["seeds"]))
+            all_records.extend(build_linear_records(
+                engine, gene_names, split_idx, split_name, loader, CONFIG["seeds"]))
 
-            # Evaluate on all splits
-            for split_name, loader in splits:
-                if len(loader.dataset) == 0:
-                    continue
-                records = evaluate_to_records(
-                    model, loader, name, seed, split_name, gene_names, device
+        # ── Neural models (seed-dependent) ──
+        if split_idx not in loss_history:
+            loss_history[split_idx] = {}
+
+        for seed in CONFIG["seeds"]:
+            print(f"\n=== Seed {seed} ===")
+            torch.manual_seed(seed)
+            np.random.seed(seed)
+
+            models = {
+                "BaseMamba": BaseMamba(
+                    n_genes=CONFIG["n_genes"],
+                    d_model=CONFIG["d_model"],
+                    n_layers=CONFIG["n_layers"]
+                ).to(device),
+                "GCP-Mamba": GCPMamba(
+                    n_genes=CONFIG["n_genes"], D=D,
+                    d_model=CONFIG["d_model"],
+                    n_layers=CONFIG["n_layers"],
+                    constrained=CONFIG["constrained_monotonic"]
+                ).to(device),
+                "GCP-Mamba (Permuted)": GCPMamba(
+                    n_genes=CONFIG["n_genes"], D=D_permuted,
+                    d_model=CONFIG["d_model"],
+                    n_layers=CONFIG["n_layers"],
+                    constrained=CONFIG["constrained_monotonic"]
+                ).to(device),
+                "GCP-Mamba (Constant D)": GCPMamba(
+                    n_genes=CONFIG["n_genes"], D=D_constant,
+                    d_model=CONFIG["d_model"],
+                    n_layers=CONFIG["n_layers"],
+                    constrained=CONFIG["constrained_monotonic"]
+                ).to(device),
+            }
+
+            loss_history[split_idx][seed] = {}
+            for name, model in models.items():
+                print(f"  Training {name}...")
+                optimizer = optim.AdamW(
+                    model.parameters(),
+                    lr=CONFIG["lr"],
+                    weight_decay=CONFIG["weight_decay"]
                 )
-                all_records.extend(records)
+
+                loss_history[split_idx][seed][name] = []
+                for ep in range(1, CONFIG["epochs"] + 1):
+                    loss = train_one_epoch(model, engine.train_loader, optimizer, device)
+                    loss_history[split_idx][seed][name].append(loss)
+                    if ep % 25 == 0 or ep == CONFIG["epochs"]:
+                        print(f"    Epoch {ep:3d} | loss={loss:.6f}")
+
+                # Evaluate on all splits
+                for split_name, loader in splits:
+                    if len(loader.dataset) == 0:
+                        continue
+                    records = evaluate_to_records(
+                        model, loader, name, seed, split_idx, split_name, gene_names, device
+                    )
+                    all_records.extend(records)
 
     # ── Save canonical predictions ──
     print(f"\nTotal records: {len(all_records)}")

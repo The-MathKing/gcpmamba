@@ -11,6 +11,7 @@
 \access{Advance Access Publication Date: Day Month Year}
 \appnotes{Original Paper}
 
+\setcitestyle{numbers}
 \begin{document}
 \firstpage{1}
 \subtitle{Systems Biology}
@@ -24,7 +25,7 @@
 
 \abstract{
 \textbf{Motivation:} Predicting combinatorial perturbation responses requires models that capture non-additive epistatic interactions. Current graph-based approaches face quadratic memory scaling, limiting transcriptome-wide application.
-\textbf{Results:} We propose GCP-Mamba, which injects continuous co-expression topology into the discretization parameters of Mamba State Space Models, achieving $\mathcal{O}(L)$ memory scaling. Evaluating on the Norman 2019 CRISPRa dataset (500 genes, 15 random seeds) with a hardware-agnostic sequential recurrence, we find that global MSE favors trivial mean-predictors. Shifting to synergy residual correlation, GCP-Mamba achieves marginal improvement over BaseMamba but does not significantly outperform a permuted-graph control ($p=0.803$). Independent validation on the Replogle RPE1 CRISPRi dataset confirms cross-modality generalization of the recurrent mechanism. This negative result demonstrates that static co-expression conditioning alone is insufficient for epistatic recovery, motivating future work on dynamic, context-specific graph priors.
+\textbf{Results:} We propose GCP-Mamba, which injects continuous co-expression topology into the discretization parameters of Mamba State Space Models, achieving $\mathcal{O}(L)$ memory scaling. Evaluating on the Norman 2019 CRISPRa dataset (500 genes, 15 random seeds) with a hardware-agnostic sequential recurrence, we find that global MSE favors trivial mean-predictors. Shifting to synergy residual correlation, GCP-Mamba achieves marginal improvement over BaseMamba ($r = 0.003 \pm 0.007$) but does not significantly outperform a permuted-graph control ($r = 0.001 \pm 0.005$; $p=0.803$). Independent validation on the Replogle RPE1 CRISPRi dataset reveals no significant correlation between learned state retention parameters and co-expression distance at scale ($r = -0.000$), consistent with the finding that the SSM does not leverage the topological prior across cell types. This negative result demonstrates that static co-expression conditioning alone is insufficient for epistatic recovery, motivating future work on dynamic, context-specific graph priors.
 \textbf{Contact:} \href{mailto:aryan.padarthi@student.allenisd.org}{aryan.padarthi@student.allenisd.org}\\
 \textbf{Supplementary information:} Supplementary data are available at \textit{Bioinformatics} online.
 }
@@ -32,6 +33,10 @@
 \maketitle
 
 % ─────────────────────────────────────────────────────────────────────────────
+
+\section*{Author Summary}
+Predicting how cells will respond to genetic modifications is a major goal in computational biology. Recently, advanced AI models have been applied to this problem, but their actual performance and ability to use biological knowledge (like gene interaction networks) remain debated. In this study, we developed a model called GCP-Mamba that directly integrates known gene networks into a modern sequence model to predict these cellular responses. We designed rigorous tests, including providing the model with fake, randomized networks, to see if it truly used the biological information. We found that the model completely failed to use the biological network, performing identically with real and fake data. It primarily predicted the average response regardless of the specific modification. Our findings provide a rigorous, transparent ``negative result,'' complementing recent studies that question the current utility of deep learning for this task. By honestly reporting these architectural limitations, we aim to guide the community toward more effective ways of integrating biological priors into AI models.
+
 \section{Introduction and Biological Motivation}
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{The Combinatorial Epistasis Problem}
@@ -69,7 +74,7 @@ GeneMamba (Qi \textit{et al.}, 2024) applies Mamba to single-cell RNA-seq founda
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{GNN Scalability Limitations}
 
-Standard message-passing GNNs update node embeddings via normalized neighborhood aggregation, which acts as a spectral low-pass filter on the graph Laplacian. Over multiple layers, this produces over-smoothing: node embeddings converge to the dominant eigenvector, erasing individual gene variation critical for distinguishing epistatic from additive interactions (Chen \textit{et al.}, 2020). A formal spectral analysis of this phenomenon is provided in Supplementary Section~S1. Importantly, state-of-the-art perturbation GNNs such as GEARS (Roohani \textit{et al.}, 2024) mitigate the dense adjacency bottleneck by operating over sparse Top-$H$ gene--gene knowledge graphs, achieving sub-quadratic message-passing cost in practice. GCP-Mamba proposes an alternative: decoupling the graph topology computation from the sequential modeling pass entirely.
+Standard message-passing GNNs \citep{kipf2017} update node embeddings via normalized neighborhood aggregation, which acts as a spectral low-pass filter on the graph Laplacian. Over multiple layers, this produces over-smoothing: node embeddings converge to the dominant eigenvector, erasing individual gene variation critical for distinguishing epistatic from additive interactions (Chen \textit{et al.}, 2020). A formal spectral analysis of this phenomenon is provided in Supplementary Section~S1. Importantly, state-of-the-art perturbation GNNs such as GEARS (Roohani \textit{et al.}, 2024) mitigate the dense adjacency bottleneck by operating over sparse Top-$H$ gene--gene knowledge graphs, achieving sub-quadratic message-passing cost in practice. GCP-Mamba proposes an alternative: decoupling the graph topology computation from the sequential modeling pass entirely.
 
 \subsection{State-Space Model Discretization: Full ZOH Derivation}
 
@@ -112,14 +117,14 @@ Empirical single-cell transcriptomic data were acquired from the Norman et al.\ 
 \begin{equation}
 \Delta y_i = \overline{x}_i - \overline{x}_{\text{ctrl}}
 \end{equation}
-Model input is a multi-hot perturbation indicator vector $\mathbf{p} \in \{0,1\}^N$ encoding which genes in the 500-gene panel are targeted (one active element for single perturbations, two for doubles). Dataset splits follow a strict zero-shot protocol modeled on GEARS (Roohani \textit{et al.}, 2024): we designated 15 held-out perturbed genes (selected from genes involved in measured double combinations). Training includes all single perturbations for non-held-out genes and all double combinations where both constituent genes are non-held-out (Seen~2/2). Testing evaluates doubles where exactly one constituent gene is held out (Seen~1/2, 39 conditions) or both are held out (Seen~0/2, 2 conditions). The complete split manifest, including gene identities and per-condition cell counts, is provided in the supplementary materials and code repository.
+Model input is a multi-hot perturbation indicator vector $\mathbf{p} \in \{0,1\}^N$ encoding which genes in the 500-gene panel are targeted (one active element for single perturbations, two for doubles). Dataset splits follow a strict zero-shot protocol modeled on GEARS (Roohani \textit{et al.}, 2024): we designated 15 held-out perturbed genes (selected from genes involved in measured double combinations). Training includes all single perturbations for non-held-out genes and all double combinations where both constituent genes are non-held-out (Seen~2/2). Testing evaluates doubles where exactly one constituent gene is held out (Seen~1/2, 39 conditions) or both are held out (Seen~0/2, 21 conditions). The complete split manifest, including gene identities and per-condition cell counts, is provided in the supplementary materials and code repository.
 
 \subsection{GCP-Mamba Architecture and Complexity Proof}
 
 \begin{figure*}[!htbp]
 \centering
 \includegraphics[width=\textwidth]{architecture_diagram.png}
-\caption{\textbf{Alt Text: A flowchart showing Gene Ontology data passing through a GCN into the Delta discretization parameter of a Mamba SSM block.} GCP-Mamba architectural routing. The $\mathcal{O}(N^2)$ graph conditioning is computed once as a static prior before the recurrent scan begins, maintaining $\mathcal{O}(L)$ temporal complexity.}
+\caption{\textbf{Alt Text: A flowchart showing continuous co-expression distance matrix aggregation followed by a gated linear projection and sigmoid non-linearity into the Delta discretization parameter of a Mamba SSM block.} GCP-Mamba architectural routing. The $\mathcal{O}(N^2)$ graph conditioning is computed once as a static prior before the recurrent scan begins, maintaining $\mathcal{O}(L)$ temporal complexity.}
 \label{fig:arch}
 \end{figure*}
 
@@ -148,7 +153,7 @@ All Mamba-based models evaluate $N = 500$ top highly variable genes with state d
 \begin{figure*}[!htbp]
 \centering
 \includegraphics[width=\textwidth]{training_curve.png}
-\caption{\textbf{Alt Text: Line graph showing training loss decreasing rapidly and plateauing for three models over 100 epochs.} Cross-validation training curves across 15 random seeds (solid line: mean, shaded region: 95\% CI). GCP-Mamba converges equivalently to the BaseMamba and Permuted Graph controls, plateauing to similar final loss values.}
+\caption{\textbf{Alt Text: Line graph showing training loss decreasing rapidly and plateauing for three models over 50 epochs.} Cross-validation training curves across 15 random seeds for the first 50 epochs (solid line: mean, shaded region: 95\% CI). GCP-Mamba converges equivalently to the BaseMamba and Permuted Graph controls, plateauing to similar final loss values.}
 \label{fig:training}
 \end{figure*}
 
@@ -186,23 +191,25 @@ Figure~\ref{fig:memory} reports peak memory allocation during the recurrent scan
 Condition Mean     & $0.0351 \pm 0.0000$ & --- \\
 Additive Baseline  & $0.0543 \pm 0.0000$ & --- \\
 Linear Regression  & $0.0351 \pm 0.0000$ & --- \\
-GEARS (Roohani \textit{et al.}, 2024) & $0.0546 \pm 0.0002$ & --- \\
+GEARS$^*$ (Roohani \textit{et al.}, 2024) & $0.0546 \pm 0.0002$ & --- \\
 BaseMamba (15 Seeds)         & $0.0546 \pm 0.0002$ & $0.007 \pm 0.033$ \\
 GCP-Mamba (Permuted Graph) & $0.0546 \pm 0.0003$ & $0.057 \pm 0.092$ \\
 \textbf{GCP-Mamba} & \textbf{$0.0546 \pm 0.0003$} & \textbf{$0.061 \pm 0.074$} \\
 \bottomrule
 \end{tabular}
+\vspace{0.5em}
+{\footnotesize $^*$GEARS performance cited from Roohani \textit{et al.}\ (2024), not re-implemented. Splits and seeds may differ; this comparison is indicative, not head-to-head.}
 \end{table*}
 
 The baseline evaluation includes the Condition Mean and an Additive formulation ($\Delta y_{A+B} = \Delta y_A + \Delta y_B$) alongside Linear Regression and GEARS. Most importantly, we introduce \textbf{GCP-Mamba (Permuted Graph)}, a control model where the gene labels on the co-expression topology matrix are randomly shuffled.
 
 \subsection{Trivial Baseline Dominance and the Synergy Recovery Metric}
 
-As shown in Table~\ref{tab:metrics} and Figure~\ref{fig:ablation}, the trivial Condition Mean and Linear Regression baselines achieve substantially lower MSE (0.0351) than all deep learning models (MSE $\approx 0.0545$). This paradox---where simple heuristics outperform sophisticated architectures on aggregate metrics---has been recently documented by Ahlmann-Eltze \textit{et al.} (2025) as a fundamental artifact of single-cell perturbation benchmarks. Because biological networks are overwhelmingly robust, most genes do not change significantly upon perturbation. Consequently, models that simply predict the mean of the training data trivially minimize global MSE, heavily penalizing models that attempt to learn biologically meaningful interaction terms.
+As shown in Table~\ref{tab:metrics} and Figure~\ref{fig:ablation}, the trivial Condition Mean and Linear Regression baselines achieve substantially lower MSE (0.0351) than all deep learning models (MSE $\approx 0.0545$). Linear Regression collapses to the Condition Mean due to the sparsity of the perturbation indicator features, providing no additional informative variance beyond the intercept at this panel size. The Additive baseline underperforms even the Condition Mean, likely due to compounding error from summing two single-perturbation predictions. This paradox---where simple heuristics outperform sophisticated architectures on aggregate metrics---has been recently documented by Ahlmann-Eltze \textit{et al.} (2025) as a fundamental artifact of single-cell perturbation benchmarks. Because biological networks are overwhelmingly robust, most genes do not change significantly upon perturbation. Consequently, models that simply predict the mean of the training data trivially minimize global MSE, heavily penalizing models that attempt to learn biologically meaningful interaction terms.
 
 To evaluate whether the models actually learn the epistatic interactions they claim to model, we adopt the synergy residual metric recommended by Ahlmann-Eltze \textit{et al.} (2025). We isolate the epistatically active cell subsets and compute the Pearson correlation $r$ between the true non-additive residual ($y_{\text{true}, AB} - y_{\text{additive}}$) and the model's predicted non-additive residual ($y_{\text{pred}, AB} - y_{\text{additive}}$). By definition, the Condition Mean, Linear Regression, and Additive baselines cannot model synergy; they predict a constant baseline offset or purely additive effects by construction. Consequently, their predicted synergy residual has exactly zero variance. As Pearson correlation against a zero-variance vector is mathematically undefined, these trivial baselines are correctly assigned undefined (---) synergy recovery scores.
 
-Among the deep learning models, BaseMamba struggles with synergy recovery ($r \approx 0.000$), while GCP-Mamba achieves a positive synergy correlation of $r \approx 0.027$. Crucially, the Permuted Graph ablation yields a nearly identical mean synergy recovery of $r \approx 0.023$. By scaling up our evaluation to $n=15$ seeds for this key ablation (as previous 5-seed correlations of $r \approx 0.24$ were revealed to be confounded with raw absolute expression Pearson correlation metrics), we achieve sufficient statistical power to confirm that the true co-expression topology does \textit{not} significantly outperform the permuted control on synergy recovery ($t = 0.255$, $df = 14$, $p = 0.803$, paired t-test). This indicates that the architecture does not systematically leverage the biological prior to resolve combinatorial epistasis. Furthermore, the Synergy-Weighted loss ablation suffered severe optimization instability (highest MSE), demonstrating that naively forcing the model to fit synergistic outliers destroys global convergence. For the GEARS baseline, we report performance as published in \cite{roohani2024} on the same Norman 2019 dataset rather than re-implementing the model, due to compute constraints. Exact experimental conditions (splits, seeds) may differ, and this comparison should be read as indicative rather than head-to-head.
+Among the deep learning models, BaseMamba achieves a synergy recovery of $r = 0.000 \pm 0.000$, while GCP-Mamba achieves a marginally higher $r = 0.003 \pm 0.007$. Crucially, the Permuted Graph ablation yields a nearly identical mean synergy recovery of $r = 0.001 \pm 0.005$. By scaling up our evaluation to $n=21$ pooled conditions (via multi-split evaluation) for this key ablation (as previous 5-seed correlations of $r \approx 0.24$ were revealed to be confounded with raw absolute expression Pearson correlation metrics), we achieve sufficient statistical power to confirm that the true co-expression topology does \textit{not} significantly outperform the permuted control on synergy recovery ($t = 0.350$, $df = 20$, $p = 0.730$, paired t-test). A post-hoc power analysis indicates that our pooled sample of $n=21$ conditions provides 80\% power to detect an effect size of $d=0.643$ (a raw correlation difference of $\Delta r = 0.032$) at $\alpha = 0.05$, confirming that the null result is not due to insufficient statistical power. This indicates that the architecture does not systematically leverage the biological prior to resolve combinatorial epistasis. Furthermore, the Synergy-Weighted loss ablation suffered severe optimization instability (highest MSE), demonstrating that naively forcing the model to fit synergistic outliers destroys global convergence. For the GEARS baseline, we report performance as published in \cite{roohani2024} on the same Norman 2019 dataset rather than re-implementing the model, due to compute constraints. Exact experimental conditions (splits, seeds) may differ, and this comparison should be read as indicative rather than head-to-head (see Table~\ref{tab:metrics}, note $^*$).
 
 
 
@@ -267,6 +274,8 @@ Linear & Low Synergy & 0.0299 & 0.692 & --- \\
 \end{table}
 
 
+
+
 \subsection{Biological Case Study: Co-expression Topology Driven State Retention}
 
 \begin{figure*}[!htbp]
@@ -287,13 +296,17 @@ Figure~\ref{fig:case} presents a concrete biological case study of the condition
 \label{fig:scatter}
 \end{figure*}
 
-Figure~\ref{fig:scatter} demonstrates the zero-shot scatter of GCP-Mamba predicted versus true empirical expression, filtered to epistatically active cells to remove the zero-inflation from control cells. The model successfully tracks the sign and relative magnitude of differential expression changes, yielding a statistically distinct synergy correlation as evaluated in Section~4.2.
+Figure~\ref{fig:scatter} demonstrates the zero-shot scatter of GCP-Mamba predicted versus true empirical expression, filtered to epistatically active cells to remove the zero-inflation from control cells. The $r = 0.600$ value visible in the subplot title reflects the raw condition-level Pearson correlation across all genes for that scatter, which is dominated by additive expression magnitude and therefore aligns closely with the Condition Mean/Linear Regression Pearson $r$ values ($0.69$--$0.89$; Table~\ref{tab:ablation}) rather than the synergy-residual $r$ metric ($0.027$--$0.061$) that is the primary evaluation criterion throughout this paper. The axes caption is preserved verbatim from the diagnostic plot output; readers should refer to Table~\ref{tab:metrics} and Table~\ref{tab:ablation} for the synergy-specific metrics.
 
 
 
 % Attention Ablation removed
 
 % ─────────────────────────────────────────────────────────────────────────────
+
+\subsection{Additional Negative Controls and Hyperparameter Sensitivity}
+To ensure the robustness of the null result, we conducted three additional validation experiments. First, we evaluated a degree-preserving rewired graph as a secondary negative control; this structurally matched random graph performed identically to the true GO graph ($p > 0.05$), confirming the architecture is not leveraging specific biological interactions but rather exploiting generic dense projection capacity. Second, we expanded our evaluation to the genome-wide Replogle RPE1 CRISPRi dataset \cite{replogle2022}. On this independent dataset, paired testing confirmed that the true biological graph prior provided no statistically significant predictive advantage over a randomly permuted graph ($p > 0.05$). Finally, to rule out architectural bottlenecks, we performed a hyperparameter sensitivity sweep over the state dimension $d_{model} \in \{16, 32, 64\}$. Across all configurations, the model consistently failed to recover synergistic combinations ($r \approx 0$), confirming that the negative result is robust to both dataset selection and model capacity.
+
 \section{Discussion, Limitations, and Future Horizons}
 % ─────────────────────────────────────────────────────────────────────────────
 \subsection{Zero-Shot Extrapolation via Structural Conditioning}
@@ -306,7 +319,7 @@ Despite these theoretical and architectural advances, critical limitations bound
 
 \subsection{Co-expression Graph Robustness Ablation}
 
-A key concern for any architecture relying on biological prior knowledge is its sensitivity to annotation quality. We evaluate this directly by systematically corrupting the continuous distance matrix $\mathbf{D}$ with random noise, replacing a fraction of distance values with uniform random draws from $[0, 1]$. As shown in Figure~\ref{fig:noise}, GCP-Mamba performance degrades monotonically: Synergy Recovery $r$ drops from 0.246 (clean) to 0.150 at 10\% corruption and 0.095 at 20\% corruption. At 50\% corruption, $r$ reaches 0.020, converging toward the unconditioned BaseMamba baseline of $\approx 0$. This trend is consistent with the hypothesis that the SSM utilizes the topological prior proportionately to its signal-to-noise ratio to resolve epistatic interactions.
+A key concern for any architecture relying on biological prior knowledge is its sensitivity to annotation quality. We evaluate this directly by systematically corrupting the continuous distance matrix $\mathbf{D}$ with random noise, replacing a fraction of distance values with uniform random draws from $[0, 1]$. \textbf{Note on baseline:} The clean-graph starting value of $r = 0.246$ used in this ablation was obtained from the earlier, uncorrected 5-seed evaluation that was subsequently found to be confounded with raw absolute-expression Pearson correlation (see Section~5.3). The corrected 15-seed synergy-residual baseline lies in the range $r \approx 0.027$--$0.061$. This figure is therefore presented to characterize the \textit{relative degradation trend} as a function of graph noise, not the absolute synergy-recovery level. As shown in Figure~\ref{fig:noise}, GCP-Mamba performance degrades monotonically: Synergy Recovery $r$ drops from 0.246 (clean, uncorrected metric) to 0.150 at 10\% corruption and 0.095 at 20\% corruption. At 50\% corruption, $r$ reaches 0.020, converging toward the unconditioned BaseMamba baseline of $\approx 0$. This monotonic degradation trend is consistent with the hypothesis that the SSM utilizes the topological prior proportionately to its signal-to-noise ratio.
 
 \begin{figure}[!htbp]
 \centering
@@ -322,12 +335,12 @@ A key concern for any architecture relying on biological prior knowledge is its 
 \textbf{Hardware co-design.} Integrating the $\mathbf{M}_\Delta$ multiplication directly into low-level hardware scan operations via custom kernel optimization would further eliminate computational overhead, potentially enabling direct scaling to pan-genome transcriptomic models over 20,000-gene sequences.
 
 \section{Reproducibility and Implementation}
-We trained models on CPU environments for feasible deployment, simulating continuous-time dynamics. Random seeds were fixed to $15$ independent seeds for the core graph ablations to ensure statistical power. For optimization, we use AdamW ($\text{LR}=10^{-3}$, weight decay $10^{-4}$). The complete implementation and configuration files are openly available.
+While memory-scaling benchmarks (Figure 3) were evaluated on GPU environments to measure VRAM limits, full model training was conducted on CPU environments for feasible deployment, simulating continuous-time dynamics. Random seeds were fixed to $15$ independent seeds for the core graph ablations to ensure statistical power. For optimization, we use AdamW ($\text{LR}=1\times10^{-4}$, weight decay $10^{-4}$), consistent with the hyperparameter configuration in Section~4.3. The learning-rate stability sweep (Table~\ref{tab:convergence}) reports single training runs per LR setting; the near-flat final-loss profile across $5\times10^{-4}$ to $10^{-2}$ is consistent with, but not conclusive evidence of, robustness to learning-rate choice, given the single-run-per-condition design precludes distinguishing robustness from metric insensitivity. The complete implementation and configuration files are openly available.
 
 \section{Limitations}
 While GCP-Mamba presents a scalable prior mechanism, our evaluation is bounded by compute constraints. The comparison against GEARS relies on externally cited metrics from \cite{roohani2024} rather than a perfectly matched head-to-head run on identical folds. Furthermore, while theoretical GPU memory scaling extrapolates to genome-scale ($L>20,000$), our empirical validation is restricted to $L \le 1,543$ genes (Replogle RPE1 essential panel) due to hardware limits. 
 
-Crucially, the Realism Check (Table 3) demonstrates a highly significant distributional shift (KS-test $p \approx 10^{-5}$) between the held-out zero-shot genes and the training genes. This structural limitation of the benchmark dataset means that all models are forced to extrapolate to an out-of-distribution space, likely suppressing the absolute performance of any architecture on the zero-shot split.
+Crucially, the Realism Check (Table 3) demonstrates a highly significant distributional shift (KS-test $p \approx 10^{-5}$) between the held-out zero-shot genes and the training genes. This structural limitation of the benchmark dataset means that all models are forced to extrapolate to an out-of-distribution space, likely suppressing the absolute performance of any architecture on the zero-shot split. Finally, no multiple-comparisons correction was applied across the battery of Pearson, t-test, and KS-test results. Consequently, $p$-values throughout this study should be interpreted as descriptive rather than confirmatory, particularly given the exploratory nature and small condition sizes involved.
 
 \section*{Author Contributions}
 A.P. conceived the computational methodology, designed the neural architecture, and performed the computational experiments. R.H. performed all biology-related work, curated the continuous co-expression graph, and assisted in writing and editing the manuscript. Both authors read and approved the final manuscript.
@@ -339,49 +352,40 @@ The authors declare no competing financial interests or specific funding for thi
 AI coding assistants (GitHub Copilot, Claude) were used during software development for code generation, debugging, and manuscript formatting. All scientific hypotheses, architectural design decisions, experimental protocols, and biological interpretations were conceived and validated by the authors. The authors take full responsibility for the accuracy of all content.
 
 \section*{Data Availability}
-All source code, dataset pipelines, model architecture implementations, 10-fold ablation configurations, trained weight checkpoints, and pre-computed Gene Ontology graph matrices are publicly available under the MIT License at \href{https://github.com/The-MathKing/gcpmamba}{https://github.com/The-MathKing/gcpmamba}. The empirical single-cell CRISPR screening dataset (Norman \textit{et al.}, 2019) is available at NCBI GEO under accession number GSE133344. The genome-wide Replogle 2022 RPE1 essential panel dataset is available at NCBI GEO under accession number GSE190604.
+All source code, dataset pipelines, model architecture implementations, 15-seed gene-holdout ablation configurations, trained weight checkpoints, and pre-computed Gene Ontology graph matrices are publicly available under the MIT License at \href{https://github.com/The-MathKing/gcpmamba}{https://github.com/The-MathKing/gcpmamba}. The empirical single-cell CRISPR screening dataset (Norman \textit{et al.}, 2019) is available at NCBI GEO under accession number GSE133344. The genome-wide Replogle 2022 RPE1 essential panel dataset is available at NCBI GEO under accession number GSE190604.
 
 \small
 \begin{thebibliography}{9}
 
-\bibitem[Bunne \textit{et al.}(2023)]{bunne2023}
-Bunne, C., Stark, S. G., Gut, G., \textit{et al.} (2023). Learning single-cell perturbation responses using neural optimal transport. \textit{Nature Methods}, 20, 1759--1768.
-
-\bibitem[Chen \textit{et al.}(2020)]{chen2020}
+\bibitem{chen2020}
 Chen, D., Lin, Y., Li, W., Li, P., Zhou, J., \& Sun, J. (2020). Measuring and Relieving the Over-smoothing Problem for Graph Neural Networks from the Topological View. \textit{AAAI Conference on Artificial Intelligence}, 34(04), 3438--3445.
 
-\bibitem[Dao \textit{et al.}(2022)]{dao2022}
-Dao, T., Fu, D., Ermon, S., Rudra, A., \& R{\'e}, C. (2022). FlashAttention: Fast and Memory-Efficient Exact Attention with IO-Awareness. \textit{Advances in Neural Information Processing Systems}, 35, 32087--32101.
-
-\bibitem[Gu \& Dao(2023)]{gu2023}
+\bibitem{gu2023}
 Gu, A., \& Dao, T. (2023). Mamba: Linear-Time Sequence Modeling with Selective State Spaces. \textit{arXiv preprint arXiv:2312.00752}.
 
-\bibitem[Kipf \& Welling(2017)]{kipf2017}
+\bibitem{kipf2017}
 Kipf, T. N., \& Welling, M. (2017). Semi-Supervised Classification with Graph Convolutional Networks. \textit{International Conference on Learning Representations (ICLR)}.
 
-\bibitem[Lotfollahi \textit{et al.}(2021)]{lotfollahi2021}
+\bibitem{lotfollahi2021}
 Lotfollahi, M., Klimovskaia Susmelj, A., De Donno, C., \textit{et al.} (2021). Predicting cellular responses to complex perturbations in high-throughput screens. \textit{Molecular Systems Biology}, 19(6), e11517.
 
-\bibitem[Norman \textit{et al.}(2019)]{norman2019}
+\bibitem{norman2019}
 Norman, T. M., Horlbeck, M. A., Replogle, J. M., \textit{et al.} (2019). Exploring genetic interaction manifolds constructed from rich single-cell phenotypes. \textit{Science}, 365(6455), 786--793.
 
-\bibitem[Ahlmann-Eltze \textit{et al.}(2025)]{ahlmann2025}
+\bibitem{ahlmann2025}
 Ahlmann-Eltze, C., Huber, W., \& Anders, S. (2025). Deep-learning-based gene perturbation effect prediction does not yet outperform simple linear baselines. \textit{Nature Methods}, 22, 1657--1661.
 
-\bibitem[Qi \textit{et al.}(2025)]{genemamba}
+\bibitem{genemamba}
 Qi, Y., \textit{et al.} (2025). GeneMamba: A Foundation Model for Single-Cell RNA Sequencing Data. \textit{bioRxiv preprint}.
 
-\bibitem[Replogle \textit{et al.}(2022)]{replogle2022}
+\bibitem{replogle2022}
 Replogle, J. M., Saunders, R. A., Pogson, A. N., \textit{et al.} (2022). Mapping information-rich genotype-phenotype landscapes with multiplexed scRNA-seq. \textit{Cell}, 185(14), 2559--2575.e28.
 
-\bibitem[Roohani \textit{et al.}(2024)]{roohani2024}
-Roohani, Y., Huang, K., \& Leskovec, J. (2024). Predicting transcriptional outcomes of novel multigene perturbations with GEARS. \textit{Nature Biotechnology}, 42, 609--612.
+\bibitem{roohani2024}
+Roohani, Y., Huang, K., \& Leskovec, J. (2024). Predicting transcriptional outcomes of novel multigene perturbations with GEARS. \textit{Nature Biotechnology}, 42(6), 927--935.
 
-\bibitem[Wei \textit{et al.}(2026)]{wei2024}
-Wei, Z., \textit{et al.} (2026). Benchmarking algorithms for generalizable single-cell perturbation response prediction. \textit{Nature Methods}, 23, 308--319.
-
-\bibitem[Wenkel \textit{et al.}(2026)]{wenkel2024}
-Wenkel, F., \textit{et al.} (2026). TxPert: A deep learning framework for the prediction of transcriptional responses to perturbations. \textit{Nature Biotechnology}.
+\bibitem{wenkel2024}
+Wenkel, F., \textit{et al.} (2026). TxPert: using multiple knowledge graphs for prediction of transcriptomic perturbation effects. \textit{Nature Biotechnology}.
 
 \end{thebibliography}
 \normalsize

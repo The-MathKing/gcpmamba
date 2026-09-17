@@ -1,3 +1,10 @@
 data/
 predictions.csv
+canonical_predictions.csv
 replogle_results.json
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+.DS_Store
+venv/

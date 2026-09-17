@@ -1,0 +1,29 @@
+{
+  "h5ad": "23ffb0fac6a847ff927cf7509d80d85052bfefbfb97610786a2dafaaefa0b6a0",
+  "config": {
+    "n_genes": 500,
+    "d_model": 32,
+    "d_state": 16,
+    "n_layers": 1,
+    "epochs": 50,
+    "lr": 0.001,
+    "weight_decay": 0.0001,
+    "batch_size": 64,
+    "seeds": [
+      42,
+      43
+    ],
+    "n_splits": 4,
+    "grad_clip": 1.0,
+    "device": "cpu",
+    "preprocessing": "normalize_total(1e4) \u2192 log1p \u2192 z-score(train_only)",
+    "target_type": "condition_level_pseudobulk",
+    "h5ad_path": "data/norman/perturb_processed.h5ad",
+    "splits_dir": "splits",
+    "output_file": "canonical_predictions.csv",
+    "constrained_monotonic": true
+  },
+  "output_sha256": "934028f4ec04cdf8fe9e3d63824ef21d839309369b4d5b561ca2e4f330a2ac24",
+  "n_records": 3668000,
+  "timestamp": "2026-08-31T18:24:52.007565"
+}
