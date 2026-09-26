@@ -1,0 +1,82 @@
+\documentclass[10pt]{article}
+\usepackage[margin=2.2cm]{geometry}
+\usepackage{booktabs,longtable,amsmath,amssymb,bm,graphicx}
+\usepackage[hidelinks]{hyperref}
+\usepackage{times}
+% the generated tables use the Bioinformatics template macros
+\newcommand{\processtable}[3]{\caption{#1}\centering\small #2 #3}
+\newcommand{\botrule}{\bottomrule}
+\renewcommand{\thetable}{S\arabic{table}}
+\renewcommand{\thefigure}{S\arabic{figure}}
+\renewcommand{\thesection}{S\arabic{section}}
+\makeatletter\let\tablestar\table\let\endtablestar\endtable
+\renewenvironment{table*}{\begin{table}}{\end{table}}\makeatother
+
+\title{Supplementary information for\\``Graph-conditioned state-space models for genetic perturbation
+response prediction: a controlled evaluation against simple baselines''}
+\author{Aryan Padarthi and Riley Huynh}
+\date{}
+
+\begin{document}
+\maketitle
+
+\section{Legacy perturbation encoding}
+Table~\ref{tab:audit} quantifies the encoding flaw described in Section~3.1 of the main text, computed
+with the original data loader (\texttt{data\_loader.py}) and split manifests
+(\texttt{splits/splits\_manifest\_*.json}) by \texttt{gcpm/audit\_hvg\_encoding.py}. HVGs were selected
+on training cells only, as in the original pipeline.
+
+\section{Model development on the validation set of split 1}
+All design decisions were made on the validation perturbations of split 1; test perturbations were not
+used. Table~\ref{tab:pilot} lists the successive changes and the lowest validation MSE (all genes)
+reached in short pilot runs (12--35 epochs). For reference, predicting no change gives 0.00433, the
+train mean 0.00361, the linear model 0.00312 and the additive baseline 0.00244 on the same perturbations
+(the latter using the training singles only).
+
+\begin{table}[h]
+\caption{Pilot runs of GCP-Mamba on the validation perturbations of split 1.}\label{tab:pilot}
+\centering\small
+\begin{tabular}{lll}
+\toprule
+Change & Best validation MSE & Observation\\
+\midrule
+Initial model (scalar readout, raw PCA loadings) & 0.00362 & equal to the train mean; training loss also at train-mean level\\
++ bilinear readout & 0.00360 & unchanged\\
++ standardised gene embeddings & 0.00569 & fits training data, generalises worse than the mean\\
++ per-target embeddings, dropout, weight decay $10^{-2}$ & 0.00523 & large initial loss (random outputs on all genes)\\
++ initialisation at the train-mean prediction ($\text{lr}=2\times10^{-3}$) & 0.00320 & first improvement over the mean\\
++ learning rate $10^{-3}$ (final) & 0.00297 & \\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\section{Statistical comparisons}
+Table~\ref{tab:tests} lists all pairwise tests between GCP-Mamba and the other models on the Norman
+data. Table~\ref{tab:pearson} gives the Pearson correlation on the top-20 DE genes for every model.
+
+\section{Hyperparameters and compute}
+\begin{table}[h]
+\caption{Hyperparameters shared by all deep-model variants.}\label{tab:hyper}
+\centering\small
+\begin{tabular}{ll}
+\toprule
+Parameter & Value\\
+\midrule
+Layers, model width $d$, state size $N$ & 2, 32, 4\\
+Readout rank & 16\\
+Gene embedding & 64 PCs of control-cell expression, standardised\\
+Co-expression graph & $|r|$ on control cells, $k=20$ neighbours, symmetrised\\
+Graph signal & 3 diffusion steps, decay 0.5, $\log(1+10^3\,\cdot)$\\
+Scan chunk length, log-decay clamp & 16, $-5$\\
+Optimiser & AdamW, lr $10^{-3}$, weight decay $10^{-2}$, batch 8, clip 1.0\\
+Dropout (perturbation encoder) & 0.1\\
+Epochs & min.\ 40, max.\ 100, patience 15 on validation MSE\\
+Seeds & model seed = split seed (1--5)\\
+Hardware & 4-core CPU, no GPU\\
+\bottomrule
+\end{tabular}
+\end{table}
+
+\input{tables_supp.tex}
+
+\end{document}

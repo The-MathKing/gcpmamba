@@ -193,6 +193,44 @@ def fig_gi(df, path):
     plt.close(fig)
 
 
+def table_audit(path='results/hvg_encoding_audit.json'):
+    import json
+    a = json.load(open(path))
+    lines = [r'\begin{table}[h]', r'\caption{Legacy HVG-restricted encoding (Section~3.1): number of the 105 '
+             r'CRISPRa targets among the 500 HVGs, and perturbations whose input vector is all zero, for the ten '
+             r'split manifests of the earlier version of this work.}\label{tab:audit}', r'\centering\small',
+             r'\begin{tabular}{rrrrrr}', r'\toprule',
+             r'Split & Targets in HVGs & Train all-zero & Distinct train inputs & Test all-zero & Test $n$ \\',
+             r'\midrule']
+    for k, v in a.items():
+        tz = v['seen1']['all_zero'] + v['seen0']['all_zero'] + v['test_singles']['all_zero']
+        tn = v['seen1']['n'] + v['seen0']['n'] + v['test_singles']['n']
+        lines.append(f"{k} & {v['targets_in_hvg']} & {v['train']['all_zero']}/{v['train']['n']} "
+                     f"({100 * v['train']['all_zero'] / v['train']['n']:.0f}\\%) & {v['train']['distinct_inputs']} & "
+                     f"{tz}/{tn} ({100 * tz / tn:.0f}\\%) & {tn} \\\\")
+    lines += [r'\bottomrule', r'\end{tabular}', r'\end{table}']
+    return '\n'.join(lines)
+
+
+def table_tests(comp):
+    lab = {'all': 'All', **SUB_LABEL}
+    lines = [r'\begin{longtable}{llrrrr}', r'\caption{GCP-Mamba versus every other model on the Norman data: '
+             r'two-sided Wilcoxon signed-rank tests on per-perturbation differences in MSE (top-20 DE genes), pooled '
+             r'over the five splits; Holm correction within each test group. Negative median differences favour '
+             r'GCP-Mamba.}\label{tab:tests}\\', r'\toprule',
+             r'Test group & Comparison model & $n$ & Median diff. & $P$ & $P_{\mathrm{Holm}}$ \\', r'\midrule',
+             r'\endhead']
+    c = comp[comp.metric == 'mse_de20']
+    for sg in ['all'] + SUBGROUPS:
+        for _, r in c[c.subgroup == sg].iterrows():
+            lines.append(f"{lab[sg]} & {tex_name(r.model_b)} & {r.n} & {r.median_diff:+.4f} & "
+                         f"{r.p:.2g} & {r.p_holm:.2g} \\\\")
+        lines.append(r'\midrule')
+    lines[-1] = r'\bottomrule'
+    lines.append(r'\end{longtable}')
+    return '\n'.join(lines)
+
+
 FIG_MODELS = BASELINES[:4] + ['GEARS', 'GCP-Mamba', 'GCP-Mamba (perm. graph)', 'Mamba (no graph)',
                                 'GCP-Mamba (additive prior)']
 
@@ -203,7 +241,8 @@ def table_gi(df, models):
     g2 = summary(d, 'gi_pearson_de20')
     g2 = g2[g2.subgroup == 'all'].set_index('model')
     lines = [r'\begin{table}[!t]', r'\processtable{Prediction of genetic interactions (GI) in double perturbations '
-             r'(top-20 DE genes; mean\,$\pm$\,s.d.\ over five splits). $R^2_{\mathrm{GI}}$ is the fraction of '
+             r'whose two single perturbations were both observed during training (``2/2 seen\'\'; top-20 DE genes; '
+             r'mean\,$\pm$\,s.d.\ over five splits). $R^2_{\mathrm{GI}}$ is the fraction of '
              r'the variance of the GI residual $\boldsymbol{\epsilon}$ that a prediction explains; an exactly '
              r'additive prediction scores 0. The GI Pearson $r$ gives the trivial \emph{No change} and '
              r'\emph{Train mean} predictors scores close to those of the deep models.\label{tab:gi}}{',
@@ -253,13 +292,14 @@ def main():
                       r'Ablations and residual variants on the Norman data: MSE on the top-20 DE genes '
                       r'(mean\,$\pm$\,s.d.\ over five splits; best in bold)', 'tab:ablation'),
            table_gi(df, [m for m in BASELINES + ['GEARS', 'GCP-Mamba', 'Mamba (no graph)'] + RESIDUAL if m in models])]
+    supp_extra = [table_audit(), table_tests(comp)]
     supp = [table_main(df, main_models + [m for m in ABLATIONS + RESIDUAL if m in models], 'pearson_delta_de20', 2,
                        r'Pearson correlation of predicted and observed expression change on the top-20 DE genes '
                        r'(mean\,$\pm$\,s.d.\ over five splits; higher is better)', 'tab:pearson')]
     if os.path.exists('results/adamson_per_condition.csv'):
         tex.append(table_adamson('results/adamson_per_condition.csv'))
     open('manuscript/tables.tex', 'w').write('\n\n'.join(tex) + '\n')
-    open('manuscript/tables_supp.tex', 'w').write('\n\n'.join(supp) + '\n')
+    open('manuscript/tables_supp.tex', 'w').write('\n\n'.join(supp_extra + supp) + '\n')
     fig_benchmark(df[df.model.isin(FIG_MODELS)], 'manuscript/fig_benchmark.pdf')
     fig_gi(df, 'manuscript/fig_gi.pdf')
     print(summary(df, 'mse_de20').pivot(index='model', columns='subgroup', values='mean').round(4).to_string())

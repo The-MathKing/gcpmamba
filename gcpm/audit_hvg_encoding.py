@@ -1,6 +1,6 @@
 """Quantify the information lost by an HVG-restricted perturbation encoding.
 
-The first version of this project (legacy data_loader.py) encoded a
+The first version of this project (legacy/data_loader.py) encoded a
 perturbation as a multi-hot vector over the 500 highly variable genes and parsed
 single perturbations with cond.split('+')[0], so 'ctrl+GENE' mapped to 'ctrl'.
 Any condition whose targets are not HVGs, or are written second, receives an
@@ -10,9 +10,11 @@ Usage: python -m gcpm.audit_hvg_encoding  -> results/hvg_encoding_audit.json
 """
 import json
 import os
+import sys
 import numpy as np
 
-from data_loader import DataEngine
+sys.path.insert(0, os.path.join(os.path.dirname(__file__), '..', 'legacy'))
+from data_loader import DataEngine  # noqa: E402  (legacy pipeline, audited here)
 
 
 def main():

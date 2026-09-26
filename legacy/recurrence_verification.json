@@ -1,0 +1,62 @@
+{
+  "all_passed": true,
+  "n_tests": 6,
+  "n_passed": 6,
+  "conclusion": "The PurePyTorchSSM module executes a mathematically valid sequential ZOH recurrence. Hidden state h_{t} depends on all prior inputs h_{0..t-1}. The GO-conditioned discretization parameters (M_\u0394, A_mod) actively modify the step size and state decay. This is NOT a token-wise projection.",
+  "tests": [
+    {
+      "test": "manual_recurrence_equivalence",
+      "max_diff": 0.0,
+      "passed": true
+    },
+    {
+      "test": "recurrence_vs_no_recurrence",
+      "diff_at_t0": 0.0,
+      "diff_at_later_steps": 0.007896941155195236,
+      "passed": true,
+      "interpretation": "t=0 matches (both start from h=0), t>0 diverges proving state accumulation is active"
+    },
+    {
+      "test": "go_conditioning_modifies_delta",
+      "M_delta_mean_diff": 0.000303514301776886,
+      "A_mod_mean_diff": 0.4510335922241211,
+      "passed": true,
+      "interpretation": "Different GO distances produce different discretization parameters"
+    },
+    {
+      "test": "sequence_order_sensitivity",
+      "max_diff_forward_vs_reversed": 0.013830834068357944,
+      "passed": true,
+      "interpretation": "A token-wise MLP would produce identical outputs regardless of order"
+    },
+    {
+      "test": "state_accumulation_growth",
+      "state_norms": [
+        {
+          "L": 5,
+          "h_norm": 1.5622445344924927
+        },
+        {
+          "L": 10,
+          "h_norm": 1.6556980609893799
+        },
+        {
+          "L": 20,
+          "h_norm": 1.66402268409729
+        },
+        {
+          "L": 50,
+          "h_norm": 1.6640783548355103
+        }
+      ],
+      "monotonic_growth": true,
+      "passed": true,
+      "interpretation": "Hidden state accumulates information across time steps"
+    },
+    {
+      "test": "full_model_end_to_end",
+      "mean_output_diff": 1.6761424541473389,
+      "passed": true
+    }
+  ]
+}

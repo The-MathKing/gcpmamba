@@ -1,0 +1,281 @@
+{
+  "timestamp": "2026-08-10T19:53:16.932896",
+  "hardware": "CPU (Apple Silicon)",
+  "go_matrix_scaling": [
+    {
+      "n_genes": 100,
+      "construction_time_s": 0.018314457964152098,
+      "storage_bytes": 80000,
+      "storage_mb": 0.0762939453125,
+      "dtype": "float64"
+    },
+    {
+      "n_genes": 500,
+      "construction_time_s": 0.009570665890350938,
+      "storage_bytes": 2000000,
+      "storage_mb": 1.9073486328125,
+      "dtype": "float64"
+    },
+    {
+      "n_genes": 1000,
+      "construction_time_s": 0.022765208035707474,
+      "storage_bytes": 8000000,
+      "storage_mb": 7.62939453125,
+      "dtype": "float64"
+    },
+    {
+      "n_genes": 2000,
+      "construction_time_s": 0.07653574994765222,
+      "storage_bytes": 32000000,
+      "storage_mb": 30.517578125,
+      "dtype": "float64"
+    },
+    {
+      "n_genes": 5000,
+      "construction_time_s": 0.37759895785711706,
+      "storage_bytes": 200000000,
+      "storage_mb": 190.73486328125,
+      "dtype": "float64"
+    }
+  ],
+  "memory_breakdown": {
+    "BaseMamba_N100": {
+      "n_genes": 100,
+      "d_model": 32,
+      "n_layers": 1,
+      "batch_size": 8,
+      "total_params": 3873,
+      "trainable_params": 3873,
+      "param_memory_mb": 0.014774322509765625,
+      "buffer_memory_mb": 0.0,
+      "d_matrix_memory_mb": 0.0,
+      "forward_peak_mb": 0.10174560546875,
+      "backward_peak_mb": 63.22365188598633,
+      "optimizer_state_mb": 0.02954864501953125,
+      "total_training_mb": 0.044322967529296875
+    },
+    "GCP-Mamba_N100": {
+      "n_genes": 100,
+      "d_model": 32,
+      "n_layers": 1,
+      "batch_size": 8,
+      "total_params": 20274,
+      "trainable_params": 20274,
+      "param_memory_mb": 0.07733917236328125,
+      "buffer_memory_mb": 0.03814697265625,
+      "d_matrix_memory_mb": 0.03814697265625,
+      "forward_peak_mb": 0.10694217681884766,
+      "backward_peak_mb": 0.1013784408569336,
+      "optimizer_state_mb": 0.1546783447265625,
+      "total_training_mb": 0.30831146240234375
+    },
+    "BaseMamba_N500": {
+      "n_genes": 500,
+      "d_model": 32,
+      "n_layers": 1,
+      "batch_size": 8,
+      "total_params": 3873,
+      "trainable_params": 3873,
+      "param_memory_mb": 0.014774322509765625,
+      "buffer_memory_mb": 0.0,
+      "d_matrix_memory_mb": 0.0,
+      "forward_peak_mb": 0.37848472595214844,
+      "backward_peak_mb": 0.3422813415527344,
+      "optimizer_state_mb": 0.02954864501953125,
+      "total_training_mb": 0.044322967529296875
+    },
+    "GCP-Mamba_N500": {
+      "n_genes": 500,
+      "d_model": 32,
+      "n_layers": 1,
+      "batch_size": 8,
+      "total_params": 285874,
+      "trainable_params": 285874,
+      "param_memory_mb": 1.0905227661132812,
+      "buffer_memory_mb": 0.95367431640625,
+      "d_matrix_memory_mb": 0.95367431640625,
+      "forward_peak_mb": 0.38453006744384766,
+      "backward_peak_mb": 0.3482809066772461,
+      "optimizer_state_mb": 2.1810455322265625,
+      "total_training_mb": 5.178916931152344
+    },
+    "BaseMamba_N1000": {
+      "n_genes": 1000,
+      "d_model": 32,
+      "n_layers": 1,
+      "batch_size": 8,
+      "total_params": 3873,
+      "trainable_params": 3873,
+      "param_memory_mb": 0.014774322509765625,
+      "buffer_memory_mb": 0.0,
+      "d_matrix_memory_mb": 0.0,
+      "forward_peak_mb": 0.7260799407958984,
+      "backward_peak_mb": 0.6511039733886719,
+      "optimizer_state_mb": 0.02954864501953125,
+      "total_training_mb": 0.044322967529296875
+    },
+    "GCP-Mamba_N1000": {
+      "n_genes": 1000,
+      "d_model": 32,
+      "n_layers": 1,
+      "batch_size": 8,
+      "total_params": 1067874,
+      "trainable_params": 1067874,
+      "param_memory_mb": 4.073616027832031,
+      "buffer_memory_mb": 3.814697265625,
+      "d_matrix_memory_mb": 3.814697265625,
+      "forward_peak_mb": 0.7321634292602539,
+      "backward_peak_mb": 0.6571416854858398,
+      "optimizer_state_mb": 8.147232055664062,
+      "total_training_mb": 19.850242614746094
+    },
+    "BaseMamba_N2000": {
+      "n_genes": 2000,
+      "d_model": 32,
+      "n_layers": 1,
+      "batch_size": 8,
+      "total_params": 3873,
+      "trainable_params": 3873,
+      "param_memory_mb": 0.014774322509765625,
+      "buffer_memory_mb": 0.0,
+      "d_matrix_memory_mb": 0.0,
+      "forward_peak_mb": 1.4195995330810547,
+      "backward_peak_mb": 1.2689476013183594,
+      "optimizer_state_mb": 0.02954864501953125,
+      "total_training_mb": 0.044322967529296875
+    },
+    "GCP-Mamba_N2000": {
+      "n_genes": 2000,
+      "d_model": 32,
+      "n_layers": 1,
+      "batch_size": 8,
+      "total_params": 4131874,
+      "trainable_params": 4131874,
+      "param_memory_mb": 15.761848449707031,
+      "buffer_memory_mb": 15.2587890625,
+      "d_matrix_memory_mb": 15.2587890625,
+      "forward_peak_mb": 1.4256906509399414,
+      "backward_peak_mb": 1.2749929428100586,
+      "optimizer_state_mb": 31.523696899414062,
+      "total_training_mb": 77.8031234741211
+    },
+    "BaseMamba_N5000": {
+      "n_genes": 5000,
+      "d_model": 32,
+      "n_layers": 1,
+      "batch_size": 8,
+      "total_params": 3873,
+      "trainable_params": 3873,
+      "param_memory_mb": 0.014774322509765625,
+      "buffer_memory_mb": 0.0,
+      "d_matrix_memory_mb": 0.0,
+      "forward_peak_mb": 3.503965377807617,
+      "backward_peak_mb": 3.1227989196777344,
+      "optimizer_state_mb": 0.02954864501953125,
+      "total_training_mb": 0.044322967529296875
+    },
+    "GCP-Mamba_N5000": {
+      "n_genes": 5000,
+      "d_model": 32,
+      "n_layers": 1,
+      "batch_size": 8,
+      "total_params": 25323874,
+      "trainable_params": 25323874,
+      "param_memory_mb": 96.60291290283203,
+      "buffer_memory_mb": 95.367431640625,
+      "d_matrix_memory_mb": 95.367431640625,
+      "forward_peak_mb": 3.5099945068359375,
+      "backward_peak_mb": 3.128782272338867,
+      "optimizer_state_mb": 193.20582580566406,
+      "total_training_mb": 480.5436019897461
+    }
+  },
+  "throughput": {
+    "BaseMamba_N100": {
+      "n_genes": 100,
+      "batch_size": 64,
+      "n_batches": 50,
+      "total_conditions": 3200,
+      "elapsed_s": 0.4863102079834789,
+      "throughput_cond_per_s": 6580.162101200869
+    },
+    "GCP-Mamba_N100": {
+      "n_genes": 100,
+      "batch_size": 64,
+      "n_batches": 50,
+      "total_conditions": 3200,
+      "elapsed_s": 0.5485549168661237,
+      "throughput_cond_per_s": 5833.508918818002
+    },
+    "BaseMamba_N500": {
+      "n_genes": 500,
+      "batch_size": 64,
+      "n_batches": 50,
+      "total_conditions": 3200,
+      "elapsed_s": 3.3337786248885095,
+      "throughput_cond_per_s": 959.8717731616077
+    },
+    "GCP-Mamba_N500": {
+      "n_genes": 500,
+      "batch_size": 64,
+      "n_batches": 50,
+      "total_conditions": 3200,
+      "elapsed_s": 2.807386334054172,
+      "throughput_cond_per_s": 1139.8502447573187
+    },
+    "BaseMamba_N1000": {
+      "n_genes": 1000,
+      "batch_size": 64,
+      "n_batches": 50,
+      "total_conditions": 3200,
+      "elapsed_s": 5.401819457998499,
+      "throughput_cond_per_s": 592.3929936721127
+    },
+    "GCP-Mamba_N1000": {
+      "n_genes": 1000,
+      "batch_size": 64,
+      "n_batches": 50,
+      "total_conditions": 3200,
+      "elapsed_s": 5.512265249853954,
+      "throughput_cond_per_s": 580.5235878452662
+    }
+  },
+  "epoch_timing": {
+    "N100": {
+      "BaseMamba": {
+        "n_genes": 100,
+        "n_conditions": 100,
+        "epoch_time_s": 0.08167945803143084
+      },
+      "GCP-Mamba": {
+        "n_genes": 100,
+        "n_conditions": 100,
+        "epoch_time_s": 0.07268116716295481
+      }
+    },
+    "N500": {
+      "BaseMamba": {
+        "n_genes": 500,
+        "n_conditions": 100,
+        "epoch_time_s": 0.5700454171746969
+      },
+      "GCP-Mamba": {
+        "n_genes": 500,
+        "n_conditions": 100,
+        "epoch_time_s": 0.5236737921368331
+      }
+    },
+    "N1000": {
+      "BaseMamba": {
+        "n_genes": 1000,
+        "n_conditions": 100,
+        "epoch_time_s": 2.1050153749529272
+      },
+      "GCP-Mamba": {
+        "n_genes": 1000,
+        "n_conditions": 100,
+        "epoch_time_s": 1.712822166038677
+      }
+    }
+  }
+}
