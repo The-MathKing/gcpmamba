@@ -278,7 +278,7 @@ def main():
     df = pd.read_csv(RES)
     models = [m for m in ORDER if m in df.model.unique()]
     gi_r2(df).to_csv('results/summary_gi_r2_per_split.csv', index=False)
-    for metric in ['mse_de20', 'pearson_delta_de20', 'direction_de20', 'pearson_delta', 'gi_pearson_de20', 'gi_mse_de20']:
+    for metric in ['mse_de20', 'pearson_delta_de20', 'direction_de20', 'pearson_delta', 'gi_pearson_de20']:
         summary(df, metric).to_csv(f'results/summary_{metric}.csv', index=False)
     comp = comparisons(df)
     comp.to_csv('results/comparisons.csv', index=False)
