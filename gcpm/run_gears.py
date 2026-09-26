@@ -14,6 +14,11 @@ import pandas as pd
 import torch
 from gears import PertData, GEARS
 
+# cell-gears indexes a scipy sparse matrix with a boolean pandas Series, which recent scipy
+# handles by calling Series.nonzero() (removed in pandas 2); restore it for GEARS only
+if not hasattr(pd.Series, 'nonzero'):
+    pd.Series.nonzero = lambda self: self.to_numpy().nonzero()
+
 from gcpm.data import NormanData, load_split, targets
 from gcpm.benchmark import condition_metrics, OUT
 

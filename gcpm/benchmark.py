@@ -35,7 +35,7 @@ VARIANTS = {
                                        block='ssm', prior=True),
 }
 TRAIN = dict(d_model=32, d_state=4, n_layers=2, lr=1e-3, weight_decay=1e-2, batch_size=8,
-             max_epochs=100, patience=15)
+             max_epochs=100, patience=15, min_epochs=40)
 
 
 # ───────────────────────────── baselines ─────────────────────────────
@@ -143,7 +143,9 @@ def train_deep(d, train, val, test, spec, seed, log):
             best_state = {k: v.clone() for k, v in model.state_dict().items()}
         else:
             bad += 1
-            if bad >= TRAIN['patience']:
+            # validation loss often plateaus for several epochs before the model starts using the
+            # perturbation, so early stopping is only allowed after min_epochs
+            if bad >= TRAIN['patience'] and ep + 1 >= TRAIN['min_epochs']:
                 break
     model.load_state_dict(best_state)
     model.eval()
