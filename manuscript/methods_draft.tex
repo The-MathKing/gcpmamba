@@ -1,0 +1,162 @@
+% Draft — merged into main.tex once results are final.
+\section{Introduction}
+
+Perturb-seq screens measure the transcriptome-wide response of single cells to
+CRISPR-mediated gene perturbations \citep{dixit2016,norman2019,replogle2022}.
+Because the number of possible combinations grows quadratically with the number
+of targets, only a small fraction of double perturbations can ever be measured:
+the Norman et al.\ K562 CRISPRa screen profiled 131 of the
+$\binom{105}{2}=5{,}460$ pairs of its 105 targets \citep{norman2019}.
+Computational models that predict the response to unmeasured perturbations---and
+in particular the non-additive, genetic-interaction (GI) component of double
+perturbations---are therefore a central goal.
+
+Knowledge-graph neural networks such as GEARS \citep{roohani2024} and TxPert
+\citep{wenkel2026} and transformer-based single-cell foundation models
+\citep{cui2024scgpt,theodoris2023} have been proposed for this task. However,
+recent benchmarks found that these models often do not outperform deliberately
+simple baselines---the mean training response, the sum of single-perturbation
+effects, or a low-rank linear model
+\citep{ahlmann2025,csendes2025}. Two lessons from this literature shape our
+study: (i) every new architecture must be compared against such baselines on
+identical splits, and (ii) the contribution of any biological prior must be
+isolated by controls that remove it while keeping everything else fixed.
+
+State-space models (SSMs) such as Mamba \citep{gu2023} process sequences in time
+and memory linear in their length, whereas self-attention is quadratic
+\citep{vaswani2017}. Treating the transcriptome as a sequence of gene tokens,
+SSMs could scale to all measured genes, but genes have no natural order and an
+SSM has no notion of which genes are functionally related. We ask whether both
+limitations can be addressed by conditioning the SSM's discretization step on a
+gene--gene graph, and---more importantly---whether doing so yields better
+predictions than simple baselines.
+
+We make three contributions. First, we introduce GCP-Mamba, a bidirectional
+selective SSM over all measured genes in which the diffusion of the perturbation
+over a co-expression graph modulates the step size $\Delta$ of every gene token.
+Second, we benchmark it on the five standard GEARS splits of the Norman data
+against five simple baselines, an official GEARS re-run on the same splits, and
+five ablations that remove the graph, permute it, destroy the gene ordering, or
+remove the recurrence. Third, we document two evaluation pitfalls we
+encountered: a perturbation encoding restricted to highly variable genes that
+silently discards most targets, and a GI metric that rewards a model which
+predicts no change at all.
+
+\section{Methods}
+
+\subsection{Data and splits}
+We used the Norman et al.\ K562 CRISPRa Perturb-seq data \citep{norman2019} as
+distributed with GEARS (91{,}205 cells, 5{,}045 genes, 7{,}353 control cells;
+log-normalised expression), comprising single perturbations of 105 genes and 131
+double perturbations. For each condition we computed the
+pseudobulk response $\boldsymbol{\delta}_p=\bar{\mathbf{x}}_p-\bar{\mathbf{x}}_{\mathrm{ctrl}}\in\mathbb{R}^{5045}$.
+We used the GEARS ``simulation'' splits with seeds 1--5 \citep{roohani2024},
+generated with the official \texttt{cell-gears} code. Each split holds out
+$\sim$25\% of targets; test conditions are stratified into unseen singles and
+doubles with zero, one or two targets seen as singles in training
+(\texttt{combo\_seen0/1/2}). Validation conditions were used only for early
+stopping. All graph, ordering and embedding inputs below were computed from the
+7{,}353 unperturbed control cells, so they are identical across splits and
+contain no information about any perturbation response.
+
+\subsection{Co-expression graph and perturbation signal}
+We z-scored control-cell expression, computed absolute Pearson correlations
+between all gene pairs, kept the $k=20$ strongest neighbours per gene and
+symmetrised the result, giving a sparse graph $\mathbf{W}$ (111{,}078 edges). For a
+perturbation set $P$ with indicator $\mathbf{1}_P\in\{0,1\}^G$, the graph signal is
+a truncated diffusion
+\begin{equation}
+\mathbf{c}(P)=\log\!\Big(1+s\sum_{k=1}^{3}\beta^{k-1}\,\widetilde{\mathbf{W}}^{k}\mathbf{1}_P\Big),
+\qquad \widetilde{\mathbf{W}}=\mathbf{D}^{-1/2}\mathbf{W}\mathbf{D}^{-1/2},
+\end{equation}
+with $\beta=0.5$ and $s=10^{3}$ (the logarithm compresses a range spanning four
+orders of magnitude). $c_i(P)$ is large for genes close to a perturbed gene in the
+co-expression graph and zero for genes more than three hops away.
+
+\subsection{GCP-Mamba}
+\textbf{Tokens.} Each of the $G=5{,}045$ genes is a token. Gene $i$ has a learned
+identity vector, a projection of its control-cell embedding $\mathbf{e}_i$ (64
+principal-component loadings of control-cell expression) and of its control mean
+expression. A perturbation enters in three ways: (i) a learned flag vector added
+to the tokens of the targeted genes---all 105 targets are measured genes, so no
+target is dropped (Section~\ref{sec:pitfalls}); (ii) a set embedding
+$\sum_{g\in P}f(\mathbf{e}_g)$, with $f$ a two-layer MLP, added to every token---because
+$\mathbf{e}_g$ is available for every gene, this gives a representation for
+targets never perturbed in training; and (iii) the graph signal $c_i(P)$, linearly
+projected and added to token $i$.
+
+\textbf{Graph-conditioned selective scan.} Each layer applies a Mamba-style
+selective SSM \citep{gu2023} with diagonal state matrix
+$\mathbf{A}=-\mathrm{diag}(1,\dots,N)$, input-dependent $\mathbf{B}_i$ and
+$\mathbf{C}_i$, a SiLU output gate and a skip connection. Its step size is
+conditioned on the graph:
+\begin{equation}
+\boldsymbol{\Delta}_i=\mathrm{softplus}\big(\mathbf{W}_{\Delta}\mathbf{u}_i+\mathbf{b}_{\Delta}+\mathbf{w}_c\,c_i(P)\big),
+\end{equation}
+where $\mathbf{u}_i$ is the layer input and $\mathbf{w}_c\in\mathbb{R}^{d}$ is
+learned (initialised at zero, so the model starts as an unconditioned SSM). With
+zero-order-hold discretization,
+$\mathbf{h}_i=\exp(\boldsymbol{\Delta}_i\mathbf{A})\,\mathbf{h}_{i-1}+\boldsymbol{\Delta}_i\mathbf{B}_i u_i$:
+tokens near the perturbation take larger steps, writing more of their input into
+the state and forgetting more of the past. Unlike a global, perturbation-
+independent modulation, $\mathbf{w}_c c_i(P)$ differs between genes and between
+perturbations, and permuting the graph changes the function the model computes.
+
+\textbf{Order and direction.} Genes are placed along the Fiedler vector
+\citep{fiedler1973} of the normalised Laplacian of $\mathbf{W}$, so strongly
+co-expressed genes are close in the sequence, and each layer sums a forward and a
+backward scan. A linear head maps every token to its predicted $\delta_i$.
+
+\textbf{Implementation and complexity.} We implemented the scan in PyTorch as an
+exact chunked parallel scan (chunk length 16; within-chunk cumulative sums in
+log space, sequential recurrence across chunk states). Per-step log-decays are
+clamped at $-5$ ($\bar a\geq 0.0067$) so that the within-chunk exponentials stay
+finite in single precision; the implementation matches the naive recurrence to
+$10^{-5}$ (unit test in the repository). Time and memory are
+$\mathcal{O}(BGdN)$ for the scan plus $\mathcal{O}(|\mathbf{W}|)$ for the sparse
+diffusion, i.e.\ linear in the number of genes. No $G\times G$ object is formed.
+
+\textbf{Training.} Two layers, $d=32$, $N=4$ (195k parameters). AdamW
+\citep{loshchilov2019}, learning rate $2\times10^{-3}$, weight decay $10^{-4}$,
+batch size 8, gradient clipping at 1, mean-squared error on all genes, up to 100
+epochs with early stopping on validation MSE (patience 15). The model and data
+seed equal the split seed. All experiments ran on a 4-core CPU.
+
+\subsection{Ablations}
+All ablations share the architecture, inputs (i)--(ii), optimiser and stopping
+rule, and differ in one factor: \emph{$\Delta$ only}, graph used only in
+$\Delta$ and not added to tokens; \emph{permuted graph}, the gene labels of
+$\mathbf{W}$ are randomly permuted (preserving its degree distribution and
+spectrum); \emph{random order}, genes are placed in a random order instead of the
+Fiedler order; \emph{no graph}, $c(P)\equiv0$ (a plain bidirectional Mamba);
+\emph{Graph-MLP}, the SSM blocks are replaced by per-token MLPs so that genes
+interact only through the shared perturbation embedding and the graph signal.
+
+\subsection{Baselines}
+\emph{No change} predicts $\boldsymbol{\delta}=\mathbf{0}$. \emph{Train mean}
+predicts the mean training response. \emph{Additive} predicts
+$\boldsymbol{\delta}_A+\boldsymbol{\delta}_B$ for a double using the measured
+training singles, substituting the mean single response for any target without a
+training single. \emph{Linear} is the low-rank model of Ahlmann-Eltze et al.\
+\citep{ahlmann2025}, $\mathbf{Y}\approx\mathbf{G}\mathbf{M}\mathbf{P}^{\top}+\mathbf{b}$,
+with gene embeddings $\mathbf{G}$ from the top 10 principal components of the
+training responses, ridge penalty $0.1$ and each perturbation represented by the
+sum of its targets' embeddings, taken either from $\mathbf{G}$ (\emph{Linear
+(PCA)}, as in the original) or from the control-cell embeddings $\mathbf{e}_g$ that
+GCP-Mamba receives (\emph{Linear (ctrl emb.)}). \emph{GEARS} was retrained with
+the official implementation and default hyperparameters (hidden size 64, 20
+epochs) on the same five splits.
+
+\subsection{Metrics and statistics}
+Following \citet{roohani2024}, for each test condition we computed the MSE and the
+Pearson correlation of predicted versus observed $\boldsymbol{\delta}$ on its top-20
+differentially expressed (DE) genes, and the fraction of those genes whose
+direction of change is predicted correctly. For doubles whose singles were both
+measured, we computed the GI residual
+$\boldsymbol{\epsilon}=\boldsymbol{\delta}_{AB}-\boldsymbol{\delta}_A-\boldsymbol{\delta}_B$
+(measured singles, used only for scoring) and report the MSE and Pearson
+correlation between predicted and observed residuals on the top-20 DE genes.
+Metrics were averaged over test conditions within a split and then summarised as
+mean\,$\pm$\,s.d.\ over the five splits. Model comparisons use two-sided Wilcoxon
+signed-rank tests on per-condition differences pooled across splits, with
+Holm correction across the comparisons reported in each table.
