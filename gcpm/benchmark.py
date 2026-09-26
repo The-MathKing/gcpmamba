@@ -33,8 +33,11 @@ TRAIN = dict(d_model=32, d_state=4, n_layers=2, lr=1e-3, weight_decay=1e-2, batc
 
 # ───────────────────────────── baselines ─────────────────────────────
 
-def baseline_predictions(d, train, test):
-    """Non-deep baselines; all fitted on training conditions only."""
+LAMBDAS = [10.0 ** k for k in range(-3, 5)]
+
+
+def baseline_predictions(d, train, val, test):
+    """Non-deep baselines; fitted on training conditions, ridge penalty chosen on validation."""
     Y = np.stack([d.delta[d.cidx[c]] for c in train])                     # (n, G)
     singles = {targets(c)[0]: d.delta[d.cidx[c]] for c in train if len(targets(c)) == 1}
     mean_all = Y.mean(0)
@@ -53,13 +56,19 @@ def baseline_predictions(d, train, test):
     b = Y.mean(0)
     Yc = (Y - b).T                                                        # (G, n)
     U, S, _ = np.linalg.svd(Yc, full_matrices=False)
+    G = U[:, :10]
+    Yv = np.stack([d.delta[d.cidx[c]] for c in val])
     for name, E in (('Linear (PCA)', U[:, :10]), ('Linear (ctrl emb.)', d.emb)):
-        G = U[:, :10]
-        P = np.stack([sum(E[d.gidx[g]] for g in targets(c)) for c in train])
-        lam = 0.1
-        W = np.linalg.solve(G.T @ G + lam * np.eye(G.shape[1]), G.T @ Yc @ P) \
-            @ np.linalg.inv(P.T @ P + lam * np.eye(P.shape[1]))
-        preds[name] = {c: G @ W @ sum(E[d.gidx[g]] for g in targets(c)) + b for c in test}
+        emb = lambda c: sum(E[d.gidx[g]] for g in targets(c))
+        P = np.stack([emb(c) for c in train])
+        best = None
+        for lam in LAMBDAS:
+            W = np.linalg.solve(G.T @ G + lam * np.eye(G.shape[1]), G.T @ Yc @ P) \
+                @ np.linalg.inv(P.T @ P + lam * np.eye(P.shape[1]))
+            err = np.mean((np.stack([G @ W @ emb(c) + b for c in val]) - Yv) ** 2)
+            if best is None or err < best[0]:
+                best = (err, W)
+        preds[name] = {c: G @ best[1] @ emb(c) + b for c in test}
     return preds
 
 
@@ -169,7 +178,7 @@ def main():
         s2c, sub = load_split(seed, args.dataset)
         train = [c for c in s2c['train'] if c in d.cidx]
         val, test = s2c['val'], s2c['test']
-        preds = baseline_predictions(d, train, test) if do_base else {}
+        preds = baseline_predictions(d, train, val, test) if do_base else {}
         curves = []
         for name in names:
             t0 = time.time()
