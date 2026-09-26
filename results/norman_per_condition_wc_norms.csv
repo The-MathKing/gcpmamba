@@ -1,0 +1,29 @@
+seed,model,param,norm
+1,GCP-Mamba,layers.0.fwd.w_c,0.3288785517215729
+1,GCP-Mamba,layers.0.bwd.w_c,0.31540265679359436
+1,GCP-Mamba,layers.1.fwd.w_c,0.16573572158813477
+1,GCP-Mamba,layers.1.bwd.w_c,0.15134422481060028
+1,GCP-Mamba (Delta only),layers.0.fwd.w_c,0.7345361113548279
+1,GCP-Mamba (Delta only),layers.0.bwd.w_c,0.7534157037734985
+1,GCP-Mamba (Delta only),layers.1.fwd.w_c,1.033083200454712
+1,GCP-Mamba (Delta only),layers.1.bwd.w_c,0.9600200057029724
+1,GCP-Mamba (perm. graph),layers.0.fwd.w_c,0.6305751204490662
+1,GCP-Mamba (perm. graph),layers.0.bwd.w_c,0.744444727897644
+1,GCP-Mamba (perm. graph),layers.1.fwd.w_c,0.6561707854270935
+1,GCP-Mamba (perm. graph),layers.1.bwd.w_c,0.5383564829826355
+1,GCP-Mamba (random order),layers.0.fwd.w_c,0.3997984826564789
+1,GCP-Mamba (random order),layers.0.bwd.w_c,0.2871800363063812
+1,GCP-Mamba (random order),layers.1.fwd.w_c,0.43477484583854675
+1,GCP-Mamba (random order),layers.1.bwd.w_c,0.3087416887283325
+1,"GCP-Mamba (Delta only, w_c~N(0,1))",layers.0.fwd.w_c,6.706615447998047
+1,"GCP-Mamba (Delta only, w_c~N(0,1))",layers.0.bwd.w_c,4.923971652984619
+1,"GCP-Mamba (Delta only, w_c~N(0,1))",layers.1.fwd.w_c,5.728478908538818
+1,"GCP-Mamba (Delta only, w_c~N(0,1))",layers.1.bwd.w_c,6.746090888977051
+1,GCP-Mamba (additive prior),layers.0.fwd.w_c,0.003104544710367918
+1,GCP-Mamba (additive prior),layers.0.bwd.w_c,0.00459771603345871
+1,GCP-Mamba (additive prior),layers.1.fwd.w_c,0.006934313103556633
+1,GCP-Mamba (additive prior),layers.1.bwd.w_c,0.009028484113514423
+2,GCP-Mamba,layers.0.fwd.w_c,0.4217785894870758
+2,GCP-Mamba,layers.0.bwd.w_c,0.5044021606445312
+2,GCP-Mamba,layers.1.fwd.w_c,0.46414923667907715
+2,GCP-Mamba,layers.1.bwd.w_c,0.4512324631214142
