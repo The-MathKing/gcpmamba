@@ -56,7 +56,7 @@ def main():
             t = targets(c)
             p = model.predict([t])['_'.join(t)]
             preds[c] = p = np.asarray(p).ravel() - d.ctrl_mean
-            rows.append(dict(seed=seed, model='GEARS', condition=c, subgroup=sub[c],
+            rows.append(dict(seed=seed, rep=0, model='GEARS', condition=c, subgroup=sub[c],
                              **condition_metrics(d, c, p)))
         save_predictions(args.dataset, seed, 'GEARS', preds)
         pd.DataFrame(rows).to_csv(args.out, mode='a', header=not os.path.exists(args.out), index=False)

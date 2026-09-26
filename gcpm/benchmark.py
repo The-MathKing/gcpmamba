@@ -193,12 +193,12 @@ def condition_metrics(d, c, pred):
     return m
 
 
-def save_predictions(dataset, seed, model, pred):
+def save_predictions(dataset, seed, model, pred, rep=0):
     """Store predicted responses (float32) so every metric can be recomputed without retraining."""
     os.makedirs(PRED_DIR, exist_ok=True)
     conds = sorted(pred)
     safe = ''.join(ch if ch.isalnum() else '_' for ch in model)
-    np.savez_compressed(f'{PRED_DIR}/{dataset}_split{seed}_{safe}.npz', model=model, conditions=np.array(conds),
+    np.savez_compressed(f'{PRED_DIR}/{dataset}_split{seed}_{safe}.npz' if rep == 0 else f'{PRED_DIR}/{dataset}_split{seed}_rep{rep}_{safe}.npz', model=model, conditions=np.array(conds),
                         pred=np.stack([pred[c] for c in conds]).astype(np.float32))
 
 
@@ -206,6 +206,8 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--seeds', type=int, nargs='+', default=[1, 2, 3, 4, 5])
     ap.add_argument('--models', nargs='+', default=['all'])
+    ap.add_argument('--reps', type=int, nargs='+', default=[0],
+                    help='initialisation replicates; replicate r uses seed split_seed + 1000 r')
     ap.add_argument('--dataset', default='norman')
     ap.add_argument('--out', default=None)
     args = ap.parse_args()
@@ -224,8 +226,8 @@ def main():
 
     done = set()
     if os.path.exists(args.out):   # resume: skip (split, model) pairs already written
-        prev = pd.read_csv(args.out, usecols=['seed', 'model'])
-        done = set(zip(prev.seed, prev.model))
+        prev = pd.read_csv(args.out, usecols=['seed', 'rep', 'model'])
+        done = set(zip(prev.seed, prev.rep, prev.model))
 
     def write(rows, path):
         pd.DataFrame(rows).to_csv(path, mode='a', header=not os.path.exists(path), index=False)
@@ -238,23 +240,25 @@ def main():
             preds = baseline_predictions(d, train, val, test)
             for name, p in preds.items():
                 save_predictions(args.dataset, seed, name, p)
-            write([dict(seed=seed, model=name, condition=c, subgroup=sub[c], **condition_metrics(d, c, p[c]))
-                   for name, p in preds.items() if (seed, name) not in done for c in test], args.out)
-        for name in names:
-            if (seed, name) in done:
-                continue
-            t0 = time.time()
-            log(f'[split {seed}] {name}')
-            pred, hist, wc = train_deep(d, train, val, test, VARIANTS[name], seed, log)
-            save_predictions(args.dataset, seed, name, pred)
-            write([dict(seed=seed, model=name, condition=c, subgroup=sub[c], **condition_metrics(d, c, pred[c]))
-                   for c in test], args.out)
-            write([dict(seed=seed, model=name, epoch=e, train=a, val=b) for e, a, b in hist],
-                  args.out.replace('.csv', '_curves.csv'))
-            if wc:
-                write([dict(seed=seed, model=name, param=k, norm=v) for k, v in wc.items()],
-                      args.out.replace('.csv', '_wc_norms.csv'))
-            log(f'    done in {time.time() - t0:.0f}s')
+            write([dict(seed=seed, rep=0, model=name, condition=c, subgroup=sub[c], **condition_metrics(d, c, p[c]))
+                   for name, p in preds.items() if (seed, 0, name) not in done for c in test], args.out)
+        for rep in args.reps:
+            for name in names:
+                if (seed, rep, name) in done:
+                    continue
+                t0 = time.time()
+                log(f'[split {seed} rep {rep}] {name}')
+                pred, hist, wc = train_deep(d, train, val, test, VARIANTS[name], seed + 1000 * rep, log)
+                save_predictions(args.dataset, seed, name, pred, rep)
+                write([dict(seed=seed, rep=rep, model=name, condition=c, subgroup=sub[c],
+                            **condition_metrics(d, c, pred[c])) for c in test], args.out)
+                write([dict(seed=seed, rep=rep, model=name, epoch=e, train=a, val=b) for e, a, b in hist],
+                      args.out.replace('.csv', '_curves.csv'))
+                if wc:
+                    write([dict(seed=seed, rep=rep, model=name, param=k, norm=v) for k, v in wc.items()],
+                          args.out.replace('.csv', '_wc_norms.csv'))
+                log(f'    done in {time.time() - t0:.0f}s')
+
 
 if __name__ == '__main__':
     main()

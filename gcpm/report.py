@@ -38,6 +38,32 @@ def gi_r2(df):
     return g.rename('gi_r2').reset_index()
 
 
+def collapse_reps(df):
+    """Average each perturbation's metrics over initialisation replicates."""
+    if 'rep' not in df:
+        return df
+    return df.drop(columns='rep').groupby(['seed', 'model', 'condition', 'subgroup'], as_index=False).mean(
+        numeric_only=True)
+
+
+def table_reps(raw):
+    """Spread over initialisation replicates of the split-level MSE, for models run with >1 replicate."""
+    s = raw.groupby(['model', 'seed', 'rep']).mse_de20.mean().reset_index()
+    n = s.groupby(['model', 'seed']).rep.nunique()
+    models = [m for m in ORDER if m in n.index.get_level_values(0) and n[m].min() > 1]
+    lines = [r'\begin{table}[h]', r'\caption{Variation due to random initialisation on the Norman data. For each '
+             r'split, the MSE (top-20 DE genes, all test perturbations) of three independently initialised runs; '
+             r'shown are the mean over splits of the within-split range and standard deviation, and the mean '
+             r'split-level MSE.}\label{tab:reps}', r'\centering\small', r'\begin{tabular}{lrrr}', r'\toprule',
+             r'Model & Mean MSE & Within-split s.d. & Within-split range \\', r'\midrule']
+    for m in models:
+        x = s[s.model == m].groupby('seed').mse_de20
+        lines.append(f"{tex_name(m)} & {s[s.model == m].mse_de20.mean():.3f} & {x.std().mean():.3f} & "
+                     f"{(x.max() - x.min()).mean():.3f} \\\\")
+    lines += [r'\bottomrule', r'\end{tabular}', r'\end{table}']
+    return '\n'.join(lines)
+
+
 def split_means(df, metric, by_sub=True):
     keys = ['model', 'seed'] + (['subgroup'] if by_sub else [])
     return df.groupby(keys)[metric].mean().reset_index()
@@ -257,7 +283,7 @@ def table_gi(df, models):
 
 
 def table_adamson(path):
-    df = pd.read_csv(path)
+    df = collapse_reps(pd.read_csv(path))
     rows = []
     for metric, dig in (('mse_de20', 3), ('pearson_delta_de20', 2)):
         g = summary(df, metric)
@@ -275,7 +301,8 @@ def table_adamson(path):
 
 
 def main():
-    df = pd.read_csv(RES)
+    raw = pd.read_csv(RES)
+    df = collapse_reps(raw)
     models = [m for m in ORDER if m in df.model.unique()]
     gi_r2(df).to_csv('results/summary_gi_r2_per_split.csv', index=False)
     for metric in ['mse_de20', 'pearson_delta_de20', 'direction_de20', 'pearson_delta', 'gi_pearson_de20']:
@@ -292,7 +319,7 @@ def main():
                       r'Ablations and residual variants on the Norman data: MSE on the top-20 DE genes '
                       r'(mean\,$\pm$\,s.d.\ over five splits; best in bold)', 'tab:ablation'),
            table_gi(df, [m for m in BASELINES + ['GEARS', 'GCP-Mamba', 'Mamba (no graph)'] + RESIDUAL if m in models])]
-    supp_extra = [table_audit(), table_tests(comp)]
+    supp_extra = [table_audit(), table_tests(comp), table_reps(raw)]
     supp = [table_main(df, main_models + [m for m in ABLATIONS + RESIDUAL if m in models], 'pearson_delta_de20', 2,
                        r'Pearson correlation of predicted and observed expression change on the top-20 DE genes '
                        r'(mean\,$\pm$\,s.d.\ over five splits; higher is better)', 'tab:pearson')]

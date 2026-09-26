@@ -97,6 +97,17 @@ Double, 2/2 seen & Mamba (additive prior) & 90 & +0.0983 & 1e-13 & 8.2e-13 \\
 \bottomrule
 \end{longtable}
 
+\begin{table}[h]
+\caption{Variation due to random initialisation on the Norman data. For each split, the MSE (top-20 DE genes, all test perturbations) of three independently initialised runs; shown are the mean over splits of the within-split range and standard deviation, and the mean split-level MSE.}\label{tab:reps}
+\centering\small
+\begin{tabular}{lrrr}
+\toprule
+Model & Mean MSE & Within-split s.d. & Within-split range \\
+\midrule
+\bottomrule
+\end{tabular}
+\end{table}
+
 \begin{table*}[!t]
 \processtable{Pearson correlation of predicted and observed expression change on the top-20 DE genes (mean\,$\pm$\,s.d.\ over five splits; higher is better)\label{tab:pearson}}{
 \begin{tabular*}{\hsize}{@{\extracolsep{\fill}}lccccc@{}}
