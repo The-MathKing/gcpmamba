@@ -26,6 +26,13 @@ VARIANTS = {
     'GCP-Mamba (random order)': dict(graph='true', order='random', graph_in_delta=True, graph_in_input=True, block='ssm'),
     'Mamba (no graph)':       dict(graph='none', order='fiedler', graph_in_delta=False, graph_in_input=False, block='ssm'),
     'Graph-MLP (no scan)':    dict(graph='true', order='fiedler', graph_in_delta=True, graph_in_input=True, block='mlp'),
+    'GCP-Mamba (Delta only, w_c~N(0,1))': dict(graph='true', order='fiedler', graph_in_delta=True,
+                                               graph_in_input=False, block='ssm', wc_init_std=1.0),
+    # residual variants: predict delta - additive prior (sum of training singles), i.e. the GI term
+    'GCP-Mamba (additive prior)': dict(graph='true', order='fiedler', graph_in_delta=True, graph_in_input=True,
+                                       block='ssm', prior=True),
+    'Mamba (additive prior)':     dict(graph='none', order='fiedler', graph_in_delta=False, graph_in_input=False,
+                                       block='ssm', prior=True),
 }
 TRAIN = dict(d_model=32, d_state=4, n_layers=2, lr=1e-3, weight_decay=1e-2, batch_size=8,
              max_epochs=100, patience=15)
@@ -74,6 +81,19 @@ def baseline_predictions(d, train, val, test):
 
 # ───────────────────────────── deep models ─────────────────────────────
 
+def additive_prior(d, train, conds):
+    """Sum of the targets' training single responses; the mean single response for a target
+    without one. A single perturbation always gets the mean single response (never its own
+    measured response), so the prior is computed identically for training and test conditions."""
+    singles = {targets(c)[0]: d.delta[d.cidx[c]] for c in train if len(targets(c)) == 1}
+    mean_single = np.stack(list(singles.values())).mean(0)
+    out = []
+    for c in conds:
+        t = targets(c)
+        out.append(mean_single if len(t) == 1 else sum(singles.get(g, mean_single) for g in t))
+    return np.stack(out).astype(np.float32)
+
+
 def train_deep(d, train, val, test, spec, seed, log):
     torch.manual_seed(seed)
     rng = np.random.default_rng(seed)
@@ -88,15 +108,17 @@ def train_deep(d, train, val, test, spec, seed, log):
         P = np.stack([d.indicator(c) for c in conds])
         C = d.graph_signal(P, W) if spec['graph'] != 'none' else np.zeros_like(P)
         Y = np.stack([d.delta[d.cidx[c]] for c in conds])
-        return [torch.tensor(a[:, order]) for a in (P, C, Y)]
+        R = additive_prior(d, train, conds) if spec.get('prior') else np.zeros_like(Y)
+        return [torch.tensor(a[:, order]) for a in (P, C, Y - R, R)]   # target is the residual
 
-    Ptr, Ctr, Ytr = tensors(train)
-    Pva, Cva, Yva = tensors(val)
-    Pte, Cte, _ = tensors(test)
+    Ptr, Ctr, Ytr, _ = tensors(train)
+    Pva, Cva, Yva, _ = tensors(val)
+    Pte, Cte, _, Rte = tensors(test)
     model = GCPMamba(G, torch.tensor(d.emb[order]), torch.tensor(d.ctrl_mean[order]),
                      d_model=TRAIN['d_model'], d_state=TRAIN['d_state'], n_layers=TRAIN['n_layers'],
                      graph_in_delta=spec['graph_in_delta'], graph_in_input=spec['graph_in_input'],
-                     block=spec['block'], init_mean=Ytr.mean(0))
+                     block=spec['block'], init_mean=Ytr.mean(0),
+                     wc_init_std=spec.get('wc_init_std', 0.0))
     opt = torch.optim.AdamW(model.parameters(), lr=TRAIN['lr'], weight_decay=TRAIN['weight_decay'])
     best, best_state, bad, hist = np.inf, None, 0, []
     for ep in range(TRAIN['max_epochs']):
@@ -126,9 +148,12 @@ def train_deep(d, train, val, test, spec, seed, log):
     model.load_state_dict(best_state)
     model.eval()
     with torch.no_grad():
-        out = torch.cat([model(Pte[i:i + 16], Cte[i:i + 16]) for i in range(0, len(Pte), 16)]).numpy()
+        out = torch.cat([model(Pte[i:i + 16], Cte[i:i + 16]) for i in range(0, len(Pte), 16)]) + Rte
+    out = out.numpy()
     inv = np.argsort(order)
-    return {c: out[k][inv] for k, c in enumerate(test)}, hist
+    # diagnostics: norm of the Delta-conditioning weights w_c in each SSM
+    wc = {n: p.norm().item() for n, p in model.named_parameters() if n.endswith('w_c')}
+    return {c: out[k][inv] for k, c in enumerate(test)}, hist, wc
 
 
 # ───────────────────────────── metrics ─────────────────────────────
@@ -174,27 +199,36 @@ def main():
         logf.write(s + '\n')
         logf.flush()
 
+    done = set()
+    if os.path.exists(args.out):   # resume: skip (split, model) pairs already written
+        prev = pd.read_csv(args.out, usecols=['seed', 'model'])
+        done = set(zip(prev.seed, prev.model))
+
+    def write(rows, path):
+        pd.DataFrame(rows).to_csv(path, mode='a', header=not os.path.exists(path), index=False)
+
     for seed in args.seeds:
         s2c, sub = load_split(seed, args.dataset)
         train = [c for c in s2c['train'] if c in d.cidx]
         val, test = s2c['val'], s2c['test']
-        preds = baseline_predictions(d, train, val, test) if do_base else {}
-        curves = []
+        if do_base:
+            preds = baseline_predictions(d, train, val, test)
+            write([dict(seed=seed, model=name, condition=c, subgroup=sub[c], **condition_metrics(d, c, p[c]))
+                   for name, p in preds.items() if (seed, name) not in done for c in test], args.out)
         for name in names:
+            if (seed, name) in done:
+                continue
             t0 = time.time()
             log(f'[split {seed}] {name}')
-            preds[name], hist = train_deep(d, train, val, test, VARIANTS[name], seed, log)
-            curves += [dict(seed=seed, model=name, epoch=e, train=a, val=b) for e, a, b in hist]
+            pred, hist, wc = train_deep(d, train, val, test, VARIANTS[name], seed, log)
+            write([dict(seed=seed, model=name, condition=c, subgroup=sub[c], **condition_metrics(d, c, pred[c]))
+                   for c in test], args.out)
+            write([dict(seed=seed, model=name, epoch=e, train=a, val=b) for e, a, b in hist],
+                  args.out.replace('.csv', '_curves.csv'))
+            if wc:
+                write([dict(seed=seed, model=name, param=k, norm=v) for k, v in wc.items()],
+                      args.out.replace('.csv', '_wc_norms.csv'))
             log(f'    done in {time.time() - t0:.0f}s')
-        rows = [dict(seed=seed, model=name, condition=c, subgroup=sub[c], **condition_metrics(d, c, p[c]))
-                for name, p in preds.items() for c in test]
-        df = pd.DataFrame(rows)
-        df.to_csv(args.out, mode='a', header=not os.path.exists(args.out), index=False)
-        if curves:
-            cf = args.out.replace('.csv', '_curves.csv')
-            pd.DataFrame(curves).to_csv(cf, mode='a', header=not os.path.exists(cf), index=False)
-        log(df.groupby('model')[['mse_de20', 'pearson_delta_de20', 'gi_pearson_de20']].mean().to_string())
-
 
 if __name__ == '__main__':
     main()

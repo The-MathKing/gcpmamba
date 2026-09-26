@@ -58,7 +58,7 @@ def selective_scan(log_a, b):
 class SelectiveSSM(nn.Module):
     """Mamba-style selective SSM (diagonal A, input-dependent Delta, B, C, gated output)."""
 
-    def __init__(self, d_model, d_state, graph_conditioned):
+    def __init__(self, d_model, d_state, graph_conditioned, wc_init_std=0.0):
         super().__init__()
         self.in_proj = nn.Linear(d_model, 2 * d_model)
         self.dt_proj = nn.Linear(d_model, d_model)
@@ -67,8 +67,9 @@ class SelectiveSSM(nn.Module):
         self.A_log = nn.Parameter(torch.log(torch.arange(1, d_state + 1).float()).repeat(d_model, 1))
         self.D_skip = nn.Parameter(torch.ones(d_model))
         self.out_proj = nn.Linear(d_model, d_model)
-        # w_c: how strongly graph proximity to the perturbation modulates Delta
-        self.w_c = nn.Parameter(torch.zeros(d_model)) if graph_conditioned else None
+        # w_c: how strongly graph proximity to the perturbation modulates Delta (default: zero
+        # init, so the model starts as an unconditioned SSM; wc_init_std > 0 for the sensitivity run)
+        self.w_c = nn.Parameter(torch.randn(d_model) * wc_init_std) if graph_conditioned else None
         with torch.no_grad():  # Mamba initialisation: Delta in [1e-3, 1e-1]
             dt = torch.exp(torch.rand(d_model) * (math.log(0.1) - math.log(1e-3)) + math.log(1e-3))
             self.dt_proj.bias.copy_(dt + torch.log(-torch.expm1(-dt)))
@@ -89,11 +90,11 @@ class SelectiveSSM(nn.Module):
 
 
 class BiSSMBlock(nn.Module):
-    def __init__(self, d_model, d_state, graph_conditioned):
+    def __init__(self, d_model, d_state, graph_conditioned, wc_init_std=0.0):
         super().__init__()
         self.norm = nn.LayerNorm(d_model)
-        self.fwd = SelectiveSSM(d_model, d_state, graph_conditioned)
-        self.bwd = SelectiveSSM(d_model, d_state, graph_conditioned)
+        self.fwd = SelectiveSSM(d_model, d_state, graph_conditioned, wc_init_std)
+        self.bwd = SelectiveSSM(d_model, d_state, graph_conditioned, wc_init_std)
 
     def forward(self, x, c):
         h = self.norm(x)
@@ -121,7 +122,7 @@ class GCPMamba(nn.Module):
     """
 
     def __init__(self, n_genes, emb, ctrl_mean, d_model=32, d_state=8, n_layers=2,
-                 graph_in_delta=True, graph_in_input=True, block='ssm', readout_rank=16, dropout=0.1, init_mean=None):
+                 graph_in_delta=True, graph_in_input=True, block='ssm', readout_rank=16, dropout=0.1, init_mean=None, wc_init_std=0.0):
         super().__init__()
         self.register_buffer('emb', emb)                # (G, E) control-cell gene embeddings
         self.register_buffer('ctrl', ctrl_mean)          # (G,)
@@ -135,8 +136,11 @@ class GCPMamba(nn.Module):
         self.target_emb = nn.Parameter(torch.zeros(n_genes, d_model))
         self.target_flag = nn.Parameter(torch.randn(d_model) * 0.02)
         self.graph_in = nn.Linear(1, d_model) if graph_in_input else None
-        Block = BiSSMBlock if block == 'ssm' else TokenMLPBlock
-        self.layers = nn.ModuleList([Block(d_model, d_state, graph_in_delta) for _ in range(n_layers)])
+        if block == 'ssm':
+            self.layers = nn.ModuleList([BiSSMBlock(d_model, d_state, graph_in_delta, wc_init_std)
+                                         for _ in range(n_layers)])
+        else:
+            self.layers = nn.ModuleList([TokenMLPBlock(d_model) for _ in range(n_layers)])
         self.norm_f = nn.LayerNorm(d_model)
         self.head = nn.Linear(d_model, 1)
         # bilinear readout <U h_i, V z_P>: gene-by-perturbation interaction; contains the

@@ -30,7 +30,13 @@ def main():
     d = NormanData(args.dataset)
     pert = PertData('gears_data')
     pert.load(data_path=f'gears_data/{args.dataset}')
+    done = set()
+    if os.path.exists(args.out):
+        prev = pd.read_csv(args.out, usecols=['seed', 'model'])
+        done = set(prev.seed[prev.model == 'GEARS'])
     for seed in args.seeds:
+        if seed in done:
+            continue
         t0 = time.time()
         torch.manual_seed(seed)
         np.random.seed(seed)
