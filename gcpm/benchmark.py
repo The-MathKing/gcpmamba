@@ -15,6 +15,7 @@ from gcpm.data import NormanData, load_split, targets
 from gcpm.model import GCPMamba
 
 OUT = 'results/{}_per_condition.csv'
+PRED_DIR = 'results/predictions'
 
 # Deep-model variants. Every variant receives the same perturbation information
 # (target-token flag + control-cell target embedding); they differ only in how
@@ -46,7 +47,7 @@ LAMBDAS = [10.0 ** k for k in range(-3, 5)]
 def baseline_predictions(d, train, val, test):
     """Non-deep baselines; fitted on training conditions, ridge penalty chosen on validation."""
     Y = np.stack([d.delta[d.cidx[c]] for c in train])                     # (n, G)
-    singles = {targets(c)[0]: d.delta[d.cidx[c]] for c in train if len(targets(c)) == 1}
+    singles = observed_singles(d, train + val)
     mean_all = Y.mean(0)
     mean_single = np.stack(list(singles.values())).mean(0)
     preds = {'No change': {}, 'Train mean': {}, 'Additive': {}}
@@ -81,11 +82,19 @@ def baseline_predictions(d, train, val, test):
 
 # ───────────────────────────── deep models ─────────────────────────────
 
-def additive_prior(d, train, conds):
-    """Sum of the targets' training single responses; the mean single response for a target
-    without one. A single perturbation always gets the mean single response (never its own
+def observed_singles(d, observed):
+    """{gene: response} for every gene perturbed alone in the observed (training + validation)
+    conditions, orientations averaged. GEARS calls a gene 'seen' if it is in either set."""
+    allowed = set(observed)
+    genes = {targets(c)[0] for c in observed if len(targets(c)) == 1}
+    return {g: d.single_response(g, allowed) for g in genes}
+
+
+def additive_prior(d, observed, conds):
+    """Sum of the targets' observed single responses (training + validation); the mean single
+    response for a target without one. A single perturbation always gets the mean single response (never its own
     measured response), so the prior is computed identically for training and test conditions."""
-    singles = {targets(c)[0]: d.delta[d.cidx[c]] for c in train if len(targets(c)) == 1}
+    singles = observed_singles(d, observed)
     mean_single = np.stack(list(singles.values())).mean(0)
     out = []
     for c in conds:
@@ -108,7 +117,7 @@ def train_deep(d, train, val, test, spec, seed, log):
         P = np.stack([d.indicator(c) for c in conds])
         C = d.graph_signal(P, W) if spec['graph'] != 'none' else np.zeros_like(P)
         Y = np.stack([d.delta[d.cidx[c]] for c in conds])
-        R = additive_prior(d, train, conds) if spec.get('prior') else np.zeros_like(Y)
+        R = additive_prior(d, train + val, conds) if spec.get('prior') else np.zeros_like(Y)
         return [torch.tensor(a[:, order]) for a in (P, C, Y - R, R)]   # target is the residual
 
     Ptr, Ctr, Ytr, _ = tensors(train)
@@ -174,11 +183,23 @@ def condition_metrics(d, c, pred):
              pearson_delta_de20=pearson(pred[de], true[de]),
              direction_de20=float(np.mean(np.sign(pred[de]) == np.sign(true[de]))))
     t = targets(c)
-    if len(t) == 2 and all(f'{g}+ctrl' in d.cidx or f'ctrl+{g}' in d.cidx for g in t):
-        add = sum(d.delta[d.cidx[f'{g}+ctrl' if f'{g}+ctrl' in d.cidx else f'ctrl+{g}']] for g in t)
+    singles = [d.single_response(g) for g in t]
+    if len(t) == 2 and all(x is not None for x in singles):
+        # GI residual eps = d_AB - d_A - d_B with measured singles (used only for scoring). The MSE of
+        # the predicted residual equals mse_de20, so we store the residual variance for R^2_GI instead.
+        add = singles[0] + singles[1]
         m['gi_pearson_de20'] = pearson(pred[de] - add[de], true[de] - add[de])
-        m['gi_mse_de20'] = float(np.mean(((pred - add)[de] - (true - add)[de]) ** 2))
+        m['gi_var_de20'] = float(np.mean((true - add)[de] ** 2))
     return m
+
+
+def save_predictions(dataset, seed, model, pred):
+    """Store predicted responses (float32) so every metric can be recomputed without retraining."""
+    os.makedirs(PRED_DIR, exist_ok=True)
+    conds = sorted(pred)
+    safe = ''.join(ch if ch.isalnum() else '_' for ch in model)
+    np.savez_compressed(f'{PRED_DIR}/{dataset}_split{seed}_{safe}.npz', model=model, conditions=np.array(conds),
+                        pred=np.stack([pred[c] for c in conds]).astype(np.float32))
 
 
 def main():
@@ -215,6 +236,8 @@ def main():
         val, test = s2c['val'], s2c['test']
         if do_base:
             preds = baseline_predictions(d, train, val, test)
+            for name, p in preds.items():
+                save_predictions(args.dataset, seed, name, p)
             write([dict(seed=seed, model=name, condition=c, subgroup=sub[c], **condition_metrics(d, c, p[c]))
                    for name, p in preds.items() if (seed, name) not in done for c in test], args.out)
         for name in names:
@@ -223,6 +246,7 @@ def main():
             t0 = time.time()
             log(f'[split {seed}] {name}')
             pred, hist, wc = train_deep(d, train, val, test, VARIANTS[name], seed, log)
+            save_predictions(args.dataset, seed, name, pred)
             write([dict(seed=seed, model=name, condition=c, subgroup=sub[c], **condition_metrics(d, c, pred[c]))
                    for c in test], args.out)
             write([dict(seed=seed, model=name, epoch=e, train=a, val=b) for e, a, b in hist],

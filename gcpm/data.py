@@ -31,6 +31,13 @@ class NormanData:
         self.W = sp.csr_matrix((d['g_val'], (d['g_row'], d['g_col'])), shape=(G, G))
         self.ncells = d['ncells']
 
+    def single_response(self, gene, allowed=None):
+        """Response to perturbing `gene` alone: the mean over its single-perturbation conditions
+        ('GENE+ctrl' and 'ctrl+GENE' are distinct guides for the same target). Returns None if no
+        such condition is available (optionally restricted to the conditions in `allowed`)."""
+        conds = [c for c in (f'{gene}+ctrl', f'ctrl+{gene}') if c in self.cidx and (allowed is None or c in allowed)]
+        return self.delta[[self.cidx[c] for c in conds]].mean(0) if conds else None
+
     def indicator(self, cond):
         p = np.zeros(len(self.genes), np.float32)
         for g in targets(cond):

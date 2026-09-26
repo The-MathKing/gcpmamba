@@ -20,7 +20,7 @@ if not hasattr(pd.Series, 'nonzero'):
     pd.Series.nonzero = lambda self: self.to_numpy().nonzero()
 
 from gcpm.data import NormanData, load_split, targets
-from gcpm.benchmark import condition_metrics, OUT
+from gcpm.benchmark import condition_metrics, save_predictions, OUT
 
 
 def main():
@@ -51,13 +51,14 @@ def main():
         model.model_initialize(hidden_size=64)
         model.train(epochs=args.epochs)
         _, sub = load_split(seed, args.dataset)
-        rows = []
+        rows, preds = [], {}
         for c in pert.set2conditions['test']:
             t = targets(c)
             p = model.predict([t])['_'.join(t)]
-            p = np.asarray(p).ravel() - d.ctrl_mean
+            preds[c] = p = np.asarray(p).ravel() - d.ctrl_mean
             rows.append(dict(seed=seed, model='GEARS', condition=c, subgroup=sub[c],
                              **condition_metrics(d, c, p)))
+        save_predictions(args.dataset, seed, 'GEARS', preds)
         pd.DataFrame(rows).to_csv(args.out, mode='a', header=not os.path.exists(args.out), index=False)
         print(f'[split {seed}] GEARS done in {time.time() - t0:.0f}s', flush=True)
 

@@ -1,0 +1,56 @@
+\begin{table*}[!t]
+\processtable{Norman et al.\ CRISPRa screen: MSE of the predicted expression change on the top-20 DE genes of each test perturbation (mean\,$\pm$\,s.d.\ over the five GEARS simulation splits; lower is better; best in bold)\label{tab:main}}{
+\begin{tabular*}{\hsize}{@{\extracolsep{\fill}}lccccc@{}}
+\toprule
+Model & Unseen single & Double, 0/2 seen & Double, 1/2 seen & Double, 2/2 seen & All test \\
+\midrule
+No change & 0.346\,$\pm$\,0.081 & 0.752\,$\pm$\,0.272 & 0.669\,$\pm$\,0.077 & 0.647\,$\pm$\,0.087 & 0.561\,$\pm$\,0.061 \\
+Train mean & 0.270\,$\pm$\,0.077 & 0.576\,$\pm$\,0.287 & 0.511\,$\pm$\,0.076 & 0.485\,$\pm$\,0.092 & 0.428\,$\pm$\,0.061 \\
+Additive & 0.279\,$\pm$\,0.079 & 0.501\,$\pm$\,0.295 & \textbf{0.239\,$\pm$\,0.081} & \textbf{0.089\,$\pm$\,0.022} & \textbf{0.240\,$\pm$\,0.070} \\
+Linear (PCA) & 0.269\,$\pm$\,0.073 & 0.616\,$\pm$\,0.328 & 0.400\,$\pm$\,0.073 & 0.296\,$\pm$\,0.090 & 0.349\,$\pm$\,0.059 \\
+Linear (ctrl emb.) & 0.322\,$\pm$\,0.103 & 0.962\,$\pm$\,0.788 & 0.518\,$\pm$\,0.090 & 0.413\,$\pm$\,0.122 & 0.452\,$\pm$\,0.078 \\
+\midrule
+GCP-Mamba & \textbf{0.255\,$\pm$\,0.091} & \textbf{0.497\,$\pm$\,0.280} & 0.309\,$\pm$\,0.090 & 0.176\,$\pm$\,0.046 & 0.278\,$\pm$\,0.079 \\
+\botrule
+\end{tabular*}}{}
+\end{table*}
+
+\begin{table*}[!t]
+\processtable{Ablations and residual variants on the Norman data: MSE on the top-20 DE genes (mean\,$\pm$\,s.d.\ over five splits; best in bold)\label{tab:ablation}}{
+\begin{tabular*}{\hsize}{@{\extracolsep{\fill}}lccccc@{}}
+\toprule
+Model & Unseen single & Double, 0/2 seen & Double, 1/2 seen & Double, 2/2 seen & All test \\
+\midrule
+GCP-Mamba & \textbf{0.255\,$\pm$\,0.091} & 0.497\,$\pm$\,0.280 & 0.309\,$\pm$\,0.090 & 0.176\,$\pm$\,0.046 & 0.278\,$\pm$\,0.079 \\
+\midrule
+GCP-Mamba ($\Delta$ only) & 0.260\,$\pm$\,0.086 & 0.503\,$\pm$\,0.297 & 0.300\,$\pm$\,0.116 & 0.158\,$\pm$\,0.064 & 0.274\,$\pm$\,0.095 \\
+GCP-Mamba ($\Delta$ only, $\mathbf{w}_c\sim\mathcal{N}(0,1)$) & 0.266\,$\pm$\,0.091 & 0.492\,$\pm$\,0.296 & 0.304\,$\pm$\,0.088 & 0.154\,$\pm$\,0.024 & 0.276\,$\pm$\,0.081 \\
+GCP-Mamba (permuted graph) & 0.257\,$\pm$\,0.079 & 0.531\,$\pm$\,0.317 & 0.344\,$\pm$\,0.146 & 0.221\,$\pm$\,0.126 & 0.304\,$\pm$\,0.115 \\
+GCP-Mamba (random order) & 0.263\,$\pm$\,0.078 & 0.526\,$\pm$\,0.232 & 0.303\,$\pm$\,0.092 & 0.158\,$\pm$\,0.053 & 0.276\,$\pm$\,0.075 \\
+Mamba (no graph) & 0.266\,$\pm$\,0.093 & 0.498\,$\pm$\,0.279 & 0.292\,$\pm$\,0.096 & 0.142\,$\pm$\,0.034 & 0.269\,$\pm$\,0.086 \\
+Graph-MLP (no scan) & 0.258\,$\pm$\,0.080 & 0.526\,$\pm$\,0.290 & 0.323\,$\pm$\,0.110 & 0.203\,$\pm$\,0.082 & 0.291\,$\pm$\,0.089 \\
+\midrule
+GCP-Mamba (additive prior) & 0.277\,$\pm$\,0.086 & \textbf{0.482\,$\pm$\,0.330} & \textbf{0.237\,$\pm$\,0.087} & 0.089\,$\pm$\,0.022 & \textbf{0.238\,$\pm$\,0.077} \\
+Mamba (additive prior) & 0.279\,$\pm$\,0.085 & 0.491\,$\pm$\,0.328 & 0.237\,$\pm$\,0.088 & \textbf{0.089\,$\pm$\,0.022} & 0.239\,$\pm$\,0.076 \\
+\botrule
+\end{tabular*}}{}
+\end{table*}
+
+\begin{table}[!t]
+\processtable{Prediction of genetic interactions (GI) in double perturbations (top-20 DE genes; mean\,$\pm$\,s.d.\ over five splits). $R^2_{\mathrm{GI}}$ is the fraction of the variance of the GI residual $\boldsymbol{\epsilon}$ that a prediction explains; an exactly additive prediction scores 0. The GI Pearson $r$ gives the trivial \emph{No change} and \emph{Train mean} predictors scores close to those of the deep models.\label{tab:gi}}{
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lcc@{}}
+\toprule
+Model & $R^2_{\mathrm{GI}}$ $\uparrow$ & GI Pearson $r$ $\uparrow$ \\
+\midrule
+No change & -11.79\,$\pm$\,1.28 & 0.23\,$\pm$\,0.12 \\
+Train mean & -8.53\,$\pm$\,1.11 & 0.26\,$\pm$\,0.12 \\
+Additive & -0.76\,$\pm$\,0.45 & 0.26\,$\pm$\,0.12 \\
+Linear (PCA) & -4.79\,$\pm$\,1.47 & 0.27\,$\pm$\,0.14 \\
+Linear (ctrl emb.) & -7.03\,$\pm$\,1.66 & 0.27\,$\pm$\,0.11 \\
+GCP-Mamba & -2.53\,$\pm$\,1.09 & 0.35\,$\pm$\,0.09 \\
+Mamba (no graph) & -1.79\,$\pm$\,0.46 & 0.39\,$\pm$\,0.05 \\
+GCP-Mamba (additive prior) & -0.77\,$\pm$\,0.46 & 0.30\,$\pm$\,0.07 \\
+Mamba (additive prior) & -0.76\,$\pm$\,0.46 & 0.27\,$\pm$\,0.11 \\
+\botrule
+\end{tabular*}}{}
+\end{table}
