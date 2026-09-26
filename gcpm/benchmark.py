@@ -2,7 +2,7 @@
 
 Usage:
     python -m gcpm.benchmark --seeds 1 2 3 4 5 --models all
-Writes one row per (split seed, model, test condition) to results/norman_per_condition.csv.
+Writes one row per (split seed, model, test condition) to results/<dataset>_per_condition.csv.
 """
 import argparse
 import os
@@ -14,7 +14,7 @@ import torch
 from gcpm.data import NormanData, load_split, targets
 from gcpm.model import GCPMamba
 
-OUT = 'results/norman_per_condition.csv'
+OUT = 'results/{}_per_condition.csv'
 
 # Deep-model variants. Every variant receives the same perturbation information
 # (target-token flag + control-cell target embedding); they differ only in how
@@ -27,7 +27,7 @@ VARIANTS = {
     'Mamba (no graph)':       dict(graph='none', order='fiedler', graph_in_delta=False, graph_in_input=False, block='ssm'),
     'Graph-MLP (no scan)':    dict(graph='true', order='fiedler', graph_in_delta=True, graph_in_input=True, block='mlp'),
 }
-TRAIN = dict(d_model=32, d_state=4, n_layers=2, lr=2e-3, weight_decay=1e-4, batch_size=8,
+TRAIN = dict(d_model=32, d_state=4, n_layers=2, lr=1e-3, weight_decay=1e-2, batch_size=8,
              max_epochs=100, patience=15)
 
 
@@ -87,7 +87,7 @@ def train_deep(d, train, val, test, spec, seed, log):
     model = GCPMamba(G, torch.tensor(d.emb[order]), torch.tensor(d.ctrl_mean[order]),
                      d_model=TRAIN['d_model'], d_state=TRAIN['d_state'], n_layers=TRAIN['n_layers'],
                      graph_in_delta=spec['graph_in_delta'], graph_in_input=spec['graph_in_input'],
-                     block=spec['block'])
+                     block=spec['block'], init_mean=Ytr.mean(0))
     opt = torch.optim.AdamW(model.parameters(), lr=TRAIN['lr'], weight_decay=TRAIN['weight_decay'])
     best, best_state, bad, hist = np.inf, None, 0, []
     for ep in range(TRAIN['max_epochs']):
@@ -149,11 +149,13 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--seeds', type=int, nargs='+', default=[1, 2, 3, 4, 5])
     ap.add_argument('--models', nargs='+', default=['all'])
-    ap.add_argument('--out', default=OUT)
+    ap.add_argument('--dataset', default='norman')
+    ap.add_argument('--out', default=None)
     args = ap.parse_args()
+    args.out = args.out or OUT.format(args.dataset)
     os.makedirs(os.path.dirname(args.out), exist_ok=True)
     torch.set_num_threads(os.cpu_count())
-    d = NormanData()
+    d = NormanData(args.dataset)
     names = list(VARIANTS) if args.models == ['all'] else [m for m in args.models if m in VARIANTS]
     do_base = args.models == ['all'] or 'baselines' in args.models
     logf = open(args.out.replace('.csv', '.log'), 'a')
@@ -164,7 +166,7 @@ def main():
         logf.flush()
 
     for seed in args.seeds:
-        s2c, sub = load_split(seed)
+        s2c, sub = load_split(seed, args.dataset)
         train = [c for c in s2c['train'] if c in d.cidx]
         val, test = s2c['val'], s2c['test']
         preds = baseline_predictions(d, train, test) if do_base else {}

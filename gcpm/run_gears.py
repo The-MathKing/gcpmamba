@@ -22,12 +22,14 @@ def main():
     ap = argparse.ArgumentParser()
     ap.add_argument('--seeds', type=int, nargs='+', default=[1, 2, 3, 4, 5])
     ap.add_argument('--epochs', type=int, default=20)
-    ap.add_argument('--out', default=OUT)
+    ap.add_argument('--dataset', default='norman')
+    ap.add_argument('--out', default=None)
     args = ap.parse_args()
+    args.out = args.out or OUT.format(args.dataset)
     torch.set_num_threads(os.cpu_count())
-    d = NormanData()
+    d = NormanData(args.dataset)
     pert = PertData('gears_data')
-    pert.load(data_path='gears_data/norman')
+    pert.load(data_path=f'gears_data/{args.dataset}')
     for seed in args.seeds:
         t0 = time.time()
         torch.manual_seed(seed)
@@ -37,7 +39,7 @@ def main():
         model = GEARS(pert, device='cpu')
         model.model_initialize(hidden_size=64)
         model.train(epochs=args.epochs)
-        _, sub = load_split(seed)
+        _, sub = load_split(seed, args.dataset)
         rows = []
         for c in pert.set2conditions['test']:
             t = targets(c)

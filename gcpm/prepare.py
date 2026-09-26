@@ -10,8 +10,11 @@ import anndata as ad
 import scipy.sparse as sp
 from sklearn.decomposition import PCA
 
-H5AD = 'data/norman/perturb_processed.h5ad'
-OUT = 'data/norman_pseudobulk.npz'
+import sys
+
+DATASET = sys.argv[1] if len(sys.argv) > 1 else 'norman'
+H5AD = f'data/{DATASET}/perturb_processed.h5ad'
+OUT = f'data/{DATASET}_pseudobulk.npz'
 KNN = 20          # neighbours kept per gene in the co-expression graph
 EMB_DIM = 64      # dimension of control-cell gene embeddings
 

@@ -3,8 +3,8 @@ import json
 import numpy as np
 import scipy.sparse as sp
 
-NPZ = 'data/norman_pseudobulk.npz'
-SPLITS = 'splits/gears_simulation_splits.json'
+NPZ = 'data/{}_pseudobulk.npz'
+SPLITS = 'splits/gears_simulation_splits{}.json'   # '' for norman, '_adamson' etc.
 DIFFUSION_STEPS = 3
 DIFFUSION_DECAY = 0.5
 SIGNAL_SCALE = 1e3   # c is compressed as log1p(SIGNAL_SCALE * c); raw values span ~1e-5..1e-1
@@ -15,8 +15,8 @@ def targets(cond):
 
 
 class NormanData:
-    def __init__(self, npz=NPZ):
-        d = np.load(npz, allow_pickle=True)
+    def __init__(self, dataset='norman'):
+        d = np.load(NPZ.format(dataset), allow_pickle=True)
         self.delta = d['delta']
         self.conds = list(d['conds'])
         self.cidx = {c: i for i, c in enumerate(self.conds)}
@@ -25,7 +25,8 @@ class NormanData:
         self.ctrl_mean = d['ctrl_mean']
         self.de20 = d['de20']
         self.order = d['order']
-        self.emb = d['emb']
+        # PCA loadings have unit norm over ~5k genes (entries ~0.01); standardise columns
+        self.emb = (d['emb'] / d['emb'].std(0)).astype(np.float32)
         G = len(self.genes)
         self.W = sp.csr_matrix((d['g_val'], (d['g_row'], d['g_col'])), shape=(G, G))
         self.ncells = d['ncells']
@@ -48,8 +49,8 @@ class NormanData:
         return np.log1p(SIGNAL_SCALE * out).astype(np.float32)
 
 
-def load_split(seed, path=SPLITS):
-    s = json.load(open(path))[str(seed)]
+def load_split(seed, dataset='norman'):
+    s = json.load(open(SPLITS.format('' if dataset == 'norman' else '_' + dataset)))[str(seed)]
     sub = {}
     for group, conds in s['subgroup']['test_subgroup'].items():
         for c in conds:

@@ -4,9 +4,10 @@ Each of the G measured genes is one token. A perturbation set P enters the
 model three ways:
   1. an indicator on the token of every targeted gene (all targets are measured
      genes, so no perturbation is ever silently dropped);
-  2. a set embedding sum_{g in P} f(e_g), where e_g is the control-cell
-     expression embedding of gene g -- this is what lets the model make
-     predictions for targets never perturbed during training;
+  2. a set embedding z_P = sum_{g in P} f(e_g) + t_g, where e_g is the
+     control-cell expression embedding of gene g and t_g a zero-initialised
+     per-target vector (learned only for targets perturbed in training); f(e_g)
+     is what lets the model make predictions for targets never seen in training;
   3. the graph signal c(P) = sum_k alpha^k  W^k 1_P  (diffusion of the
      perturbation over the control-cell co-expression graph W), which is added
      to the pre-activation of the step size Delta of every token:
@@ -15,7 +16,8 @@ model three ways:
      their input into, and forget more of, the recurrent state).
 
 The scan is bidirectional and genes are placed along the Fiedler ordering of W,
-so co-expressed genes are neighbours in the sequence.
+so co-expressed genes are neighbours in the sequence. The readout
+b_i + w.h_i + <U h_i, V z_P> starts at the training-mean predictor.
 """
 import math
 import torch
@@ -119,30 +121,43 @@ class GCPMamba(nn.Module):
     """
 
     def __init__(self, n_genes, emb, ctrl_mean, d_model=32, d_state=8, n_layers=2,
-                 graph_in_delta=True, graph_in_input=True, block='ssm'):
+                 graph_in_delta=True, graph_in_input=True, block='ssm', readout_rank=16, dropout=0.1, init_mean=None):
         super().__init__()
         self.register_buffer('emb', emb)                # (G, E) control-cell gene embeddings
         self.register_buffer('ctrl', ctrl_mean)          # (G,)
         self.graph_in_input = graph_in_input
         self.gene_emb = nn.Parameter(torch.randn(n_genes, d_model) * 0.02)
         self.gene_in = nn.Linear(emb.shape[1] + 1, d_model)
-        self.pert_enc = nn.Sequential(nn.Linear(emb.shape[1], 2 * d_model), nn.GELU(),
+        self.pert_enc = nn.Sequential(nn.Linear(emb.shape[1], 2 * d_model), nn.GELU(), nn.Dropout(dropout),
                                       nn.Linear(2 * d_model, d_model))
+        # per-target embedding: learned only for targets perturbed in training (zero-init,
+        # so targets never seen keep a zero vector and rely on the expression path above)
+        self.target_emb = nn.Parameter(torch.zeros(n_genes, d_model))
         self.target_flag = nn.Parameter(torch.randn(d_model) * 0.02)
         self.graph_in = nn.Linear(1, d_model) if graph_in_input else None
         Block = BiSSMBlock if block == 'ssm' else TokenMLPBlock
         self.layers = nn.ModuleList([Block(d_model, d_state, graph_in_delta) for _ in range(n_layers)])
         self.norm_f = nn.LayerNorm(d_model)
         self.head = nn.Linear(d_model, 1)
-        self.gene_bias = nn.Parameter(torch.zeros(n_genes))
+        # bilinear readout <U h_i, V z_P>: gene-by-perturbation interaction; contains the
+        # low-rank linear model of Ahlmann-Eltze et al. (2025) as a special case
+        self.gene_factor = nn.Linear(d_model, readout_rank, bias=False)
+        self.pert_factor = nn.Linear(d_model, readout_rank, bias=False)
+        self.gene_bias = nn.Parameter(torch.zeros(n_genes) if init_mean is None else init_mean.clone())
+        # start exactly at the training-mean predictor and learn deviations from it
+        for lin in (self.head, self.pert_factor):
+            nn.init.zeros_(lin.weight)
+        nn.init.zeros_(self.head.bias)
 
     def forward(self, P, c):
         """P: (B, G) 0/1 perturbation indicator; c: (B, G) graph signal. Returns (B, G) predicted delta."""
         base = self.gene_emb + self.gene_in(torch.cat([self.emb, self.ctrl.unsqueeze(-1)], -1))
-        pert = P @ self.pert_enc(self.emb)                       # (B, d): sum of target embeddings
+        pert = P @ (self.pert_enc(self.emb) + self.target_emb)  # (B, d): sum of target embeddings
         x = base.unsqueeze(0) + pert.unsqueeze(1) + P.unsqueeze(-1) * self.target_flag
         if self.graph_in is not None:
             x = x + self.graph_in(c.unsqueeze(-1))
         for layer in self.layers:
             x = layer(x, c)
-        return self.head(self.norm_f(x)).squeeze(-1) + self.gene_bias
+        h = self.norm_f(x)
+        inter = (self.gene_factor(h) * self.pert_factor(pert).unsqueeze(1)).sum(-1)
+        return self.head(h).squeeze(-1) + inter + self.gene_bias

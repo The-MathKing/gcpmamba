@@ -80,10 +80,12 @@ principal-component loadings of control-cell expression) and of its control mean
 expression. A perturbation enters in three ways: (i) a learned flag vector added
 to the tokens of the targeted genes---all 105 targets are measured genes, so no
 target is dropped (Section~\ref{sec:pitfalls}); (ii) a set embedding
-$\sum_{g\in P}f(\mathbf{e}_g)$, with $f$ a two-layer MLP, added to every token---because
-$\mathbf{e}_g$ is available for every gene, this gives a representation for
-targets never perturbed in training; and (iii) the graph signal $c_i(P)$, linearly
-projected and added to token $i$.
+$\mathbf{z}_P=\sum_{g\in P}\big(f(\mathbf{e}_g)+\mathbf{t}_g\big)$ added to every
+token, where $f$ is a two-layer MLP and $\mathbf{t}_g$ a per-target vector
+initialised at zero. Only targets perturbed in training receive gradient for
+$\mathbf{t}_g$; a target never seen in training is represented through
+$f(\mathbf{e}_g)$ alone, which is what makes zero-shot prediction possible; and (iii)
+the graph signal $c_i(P)$, linearly projected and added to token $i$.
 
 \textbf{Graph-conditioned selective scan.} Each layer applies a Mamba-style
 selective SSM \citep{gu2023} with diagonal state matrix
@@ -105,7 +107,17 @@ perturbations, and permuting the graph changes the function the model computes.
 \textbf{Order and direction.} Genes are placed along the Fiedler vector
 \citep{fiedler1973} of the normalised Laplacian of $\mathbf{W}$, so strongly
 co-expressed genes are close in the sequence, and each layer sums a forward and a
-backward scan. A linear head maps every token to its predicted $\delta_i$.
+backward scan.
+
+\textbf{Readout.} The prediction for gene $i$ is
+$\hat\delta_i=b_i+\mathbf{w}^{\top}\mathbf{h}_i+(\mathbf{U}\mathbf{h}_i)^{\top}(\mathbf{V}\mathbf{z}_P)$,
+with $\mathbf{h}_i$ the final token state and rank-16 matrices $\mathbf{U},\mathbf{V}$.
+The bilinear term expresses a gene-by-perturbation interaction and contains the
+low-rank linear model of \citet{ahlmann2025} as a special case. The bias $b_i$ is
+initialised at the mean training response and $\mathbf{w}$ and $\mathbf{V}$ at zero,
+so training starts from the \emph{train-mean} baseline and learns deviations from
+it; without this initialisation the model predicted spurious changes in thousands
+of genes and generalised worse than the mean (Supplementary Section~S2).
 
 \textbf{Implementation and complexity.} We implemented the scan in PyTorch as an
 exact chunked parallel scan (chunk length 16; within-chunk cumulative sums in
@@ -116,8 +128,8 @@ $10^{-5}$ (unit test in the repository). Time and memory are
 $\mathcal{O}(BGdN)$ for the scan plus $\mathcal{O}(|\mathbf{W}|)$ for the sparse
 diffusion, i.e.\ linear in the number of genes. No $G\times G$ object is formed.
 
-\textbf{Training.} Two layers, $d=32$, $N=4$ (195k parameters). AdamW
-\citep{loshchilov2019}, learning rate $2\times10^{-3}$, weight decay $10^{-4}$,
+\textbf{Training.} Two layers, $d=32$, $N=4$, dropout 0.1 in $f$. AdamW
+\citep{loshchilov2019}, learning rate $10^{-3}$, weight decay $10^{-2}$,
 batch size 8, gradient clipping at 1, mean-squared error on all genes, up to 100
 epochs with early stopping on validation MSE (patience 15). The model and data
 seed equal the split seed. All experiments ran on a 4-core CPU.
@@ -143,7 +155,7 @@ with gene embeddings $\mathbf{G}$ from the top 10 principal components of the
 training responses, ridge penalty $0.1$ and each perturbation represented by the
 sum of its targets' embeddings, taken either from $\mathbf{G}$ (\emph{Linear
 (PCA)}, as in the original) or from the control-cell embeddings $\mathbf{e}_g$ that
-GCP-Mamba receives (\emph{Linear (ctrl emb.)}). \emph{GEARS} was retrained with
+GCP-Mamba receives (\emph{Linear (ctrl emb.)}), columns standardised. \emph{GEARS} was retrained with
 the official implementation and default hyperparameters (hidden size 64, 20
 epochs) on the same five splits.
 
