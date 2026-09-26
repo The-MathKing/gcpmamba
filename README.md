@@ -44,4 +44,4 @@ The expected SHA-256 of `data/norman/perturb_processed.h5ad` is
 `23ffb0fac6a847ff927cf7509d80d85052bfefbfb97610786a2dafaaefa0b6a0`.
 
 ## License
-MIT
+MIT — see [LICENSE](LICENSE).
