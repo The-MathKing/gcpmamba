@@ -216,8 +216,9 @@ $\{10^{-3},\dots,10^{4}\}$. \emph{GEARS} was retrained with the official impleme
 hyperparameters (hidden size 64) on split 1 of the Norman data. Because GEARS trains on single cells
 and required about 40 minutes per epoch on our CPU, we trained it for 3 epochs instead of 20 (its
 learning rate halves after every epoch, so later epochs change the model little) and skipped its
-per-epoch evaluation of the whole training set, which is used only for logging and exceeded the
-available memory; its validation-based model selection was unchanged.
+per-epoch evaluation of the whole training set and its built-in test-set evaluation, which are used
+only for logging and exceeded the available memory; its validation-based model selection was
+unchanged, and test predictions were made with \texttt{GEARS.predict} and scored like all others.
 
 \subsection{Metrics and statistics}
 Following \citet{roohani2024}, for every test perturbation we computed the mean squared error (MSE)
