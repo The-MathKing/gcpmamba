@@ -78,3 +78,22 @@ Mamba (additive prior) & 0.162\,$\pm$\,0.062 & 0.79\,$\pm$\,0.10 \\
 \botrule
 \end{tabular*}}{}
 \end{table}
+
+\begin{table*}[!t]
+\processtable{Norman data, split 1 only, including GEARS (retrained with the official implementation for 3 epochs; Methods): MSE on the top-20 DE genes (best in bold).\label{tab:split1}}{
+\begin{tabular*}{\hsize}{@{\extracolsep{\fill}}lccccc@{}}
+\toprule
+Model & Unseen single & Double, 0/2 seen & Double, 1/2 seen & Double, 2/2 seen & All test \\
+\midrule
+No change & 0.337 & 0.608 & 0.696 & 0.647 & 0.559 \\
+Train mean & 0.247 & 0.405 & 0.525 & 0.515 & 0.420 \\
+Additive & 0.262 & 0.326 & 0.220 & 0.048 & 0.213 \\
+Linear (PCA) & 0.237 & 0.403 & 0.441 & 0.369 & 0.356 \\
+Linear (ctrl emb.) & 0.247 & 0.390 & 0.491 & 0.468 & 0.396 \\
+GEARS & \textbf{0.214} & \textbf{0.202} & 0.254 & 0.218 & 0.230 \\
+GCP-Mamba & 0.262 & 0.306 & 0.293 & 0.207 & 0.269 \\
+Mamba (no graph) & 0.259 & 0.304 & 0.278 & 0.186 & 0.257 \\
+GCP-Mamba (additive prior) & 0.263 & 0.325 & \textbf{0.219} & \textbf{0.048} & \textbf{0.213} \\
+\botrule
+\end{tabular*}}{}
+\end{table*}

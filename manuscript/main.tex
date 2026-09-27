@@ -42,8 +42,9 @@ the sum of single-perturbation effects, and it was not more accurate than the me
 linear model or its own graph-free and graph-permuted ablations for unseen single perturbations.
 Conditioning the step size on the graph had no measurable effect. When the network predicted
 only the deviation from the additive sum, it matched but did not improve on the additive
-prediction: no model explained any genetic-interaction variance beyond additivity. On the Adamson
-et al.\ CRISPRi screen all methods were within noise of the mean response. We also document two
+prediction: no model explained any genetic-interaction variance beyond additivity. GEARS, retrained on one split,
+predicted unseen targets more accurately than GCP-Mamba but was also less accurate than the additive
+sum overall. On the Adamson et al.\ CRISPRi screen all methods were within noise of the mean response. We also document two
 evaluation pitfalls: a perturbation encoding restricted to highly variable genes that silently
 gave 80\% of training perturbations an all-zero input in an earlier version of this work, and a
 genetic-interaction correlation metric that ranked models in the reverse order of the variance
@@ -273,8 +274,16 @@ the Norman data. As in previous benchmarks \citep{ahlmann2025}, the additive bas
 accurate predictor overall (MSE on the top-20 DE genes 0.224, averaged over all test
 perturbations), and for doubles with at least one seen target; for ``2/2 seen'' doubles its error
 (0.048) was a quarter of that of GCP-Mamba (0.196). GCP-Mamba (0.290 overall) was substantially
-more accurate than the train-mean (0.428), linear (0.349) and no-change (0.561) baselines, and
-GEARS reached TBD. %NUM GEARS
+more accurate than the train-mean (0.428), linear (0.349) and no-change (0.561) baselines.
+
+GEARS could be retrained on only one split (Methods), so we compare it separately on split 1
+(Table~\ref{tab:split1}). There GEARS was the most accurate method for perturbations of unseen genes
+(unseen singles 0.214 vs.\ 0.262 for GCP-Mamba and 0.247 for the train mean; ``0/2 seen'' doubles 0.202
+vs.\ 0.306), and it was more accurate than GCP-Mamba overall (0.230 vs.\ 0.269; Holm-adjusted $P=0.003$).
+The additive baseline nevertheless remained the most accurate method overall on this split (0.213) and
+for doubles with seen singles (``2/2 seen'': 0.048 vs.\ 0.218 for GEARS). With one split and shortened
+training these GEARS results are indicative only, but they show that a graph-based model can predict
+unseen targets better than the mean response, which GCP-Mamba did not.
 
 For unseen single perturbations, where no additive information exists, all methods except the
 no-change baseline and the linear model with control-cell embeddings were close together (MSE
@@ -373,9 +382,10 @@ better predictions of genetic perturbation responses than simple baselines. With
 represent every perturbation, a training procedure that starts from the train-mean prediction,
 controls that isolate each component and three initialisations per split, the answer is no. For
 double perturbations, the sum of single effects remained the best predictor, consistent with
-\citet{ahlmann2025}, and neither GCP-Mamba, its variants nor GEARS explained any of the variance of
-genetic interactions beyond it. For unseen single perturbations, all reasonable methods were within a
-few per cent of the mean response. The mechanism that motivated the architecture---modulating the SSM
+\citet{ahlmann2025}, and none of GCP-Mamba's variants explained any of the variance of genetic
+interactions beyond it (nor did GEARS on the one split where we could run it). For unseen single
+perturbations, GCP-Mamba and its variants stayed within a few per cent of the mean response, whereas
+GEARS improved on it. The mechanism that motivated the architecture---modulating the SSM
 step size by graph proximity to the perturbation---had no measurable effect, and removing the graph
 altogether did not make predictions worse.
 
@@ -384,9 +394,11 @@ low-dimensional: the Norman responses are dominated by a few differentiation pro
 \citep{norman2019}, and the Adamson responses by the unfolded protein response \citep{adamson2016},
 so a low-rank readout of a perturbation embedding captures most of what can be predicted, leaving
 little for a gene-specific propagation mechanism to add. Second, co-expression in unperturbed cells
-may say little about how a specific perturbation propagates; knowledge graphs of regulatory or
-physical interactions \citep{roohani2024,wenkel2026} or perturbation-derived graphs might carry more
-relevant information, and our code allows any graph to be substituted.
+may say little about how a specific perturbation propagates. GEARS, which represents perturbations
+through a Gene Ontology graph, was the only method that predicted unseen targets clearly better than
+the mean response, which suggests that functional-annotation or regulatory graphs
+\citep{roohani2024,wenkel2026} carry information that control-cell co-expression does not; our code
+allows any graph to be substituted.
 
 Our experience carries four practical lessons for developing and evaluating such models.
 (i) Audit the input encoding: an encoding tied to the output gene set gave most perturbations an

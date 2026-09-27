@@ -28,6 +28,9 @@ Script: `gcpm/audit_hvg_encoding.py` (Supplementary Table S1).
 - **Unseen singles:** everything reasonable is within ~4% of the mean response; GCP-Mamba is not
   significantly better than the mean, the linear model or its graph-free/permuted ablations.
 - **The graph and the step-size conditioning have no measurable effect.**
+- **GEARS (split 1 only, 3 epochs):** best on unseen targets (unseen singles 0.214 vs 0.262 for
+  GCP-Mamba) and better than GCP-Mamba overall (P = 0.003), but still worse than additive overall
+  (0.230 vs 0.213). Suggests Gene Ontology graphs carry information co-expression does not.
 - **Adamson:** all methods within noise of the mean response (low-signal dataset).
 - **Cost:** the scan scales linearly (attention runs out of memory at 5,000 genes), but a sparse
   graph network is 10–40× cheaper.
@@ -43,8 +46,11 @@ Script: `gcpm/audit_hvg_encoding.py` (Supplementary Table S1).
 ## 5. Questions a reviewer is likely to ask
 - *Why only K562 screens?* Replogle screens were excluded because most targets are not measured
   genes in the GEARS release, which the token encoding needs (stated in Limitations).
-- *Why is GEARS only one split, 3 epochs?* CPU-only compute: ~40 min per epoch. Stated as a limitation;
-  the paper does not rest on the GEARS comparison.
+- *Why is GEARS only one split, 3 epochs?* CPU-only compute: ~40 min per epoch, and its built-in
+  evaluations had to be skipped to fit in 15 GB RAM (predictions are scored identically to all other
+  models). Stated as a limitation; a GPU rerun on all 5 splits would strengthen this comparison.
+- *Isn't it bad that GEARS beats your model?* It supports the paper's explanation: the co-expression
+  prior is the weak part; a knowledge graph helps unseen targets. It is reported, not hidden.
 - *Would tuning help?* Hyperparameters were chosen on split-1 validation only; no variant approached
   the additive baseline, so tuning is unlikely to reverse the conclusion.
 - *Is it publishable if negative?* As a careful evaluation with reusable pitfalls, yes in principle;
