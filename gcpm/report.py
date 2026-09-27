@@ -105,7 +105,9 @@ def tex_name(m):
 
 
 def fmt(m, s, digits=3):
-    return f'{m:.{digits}f}\\,$\\pm$\\,{s:.{digits}f}' if np.isfinite(m) else '---'
+    if not np.isfinite(m):
+        return '---'
+    return f'{m:.{digits}f}\\,$\\pm$\\,{s:.{digits}f}' if np.isfinite(s) else f'{m:.{digits}f}'
 
 
 def table_main(df, models, metric, digits, caption, label):
@@ -257,7 +259,7 @@ def table_tests(comp):
     return '\n'.join(lines)
 
 
-FIG_MODELS = BASELINES[:4] + ['GEARS', 'GCP-Mamba', 'GCP-Mamba (perm. graph)', 'Mamba (no graph)',
+FIG_MODELS = BASELINES[:4] + ['GCP-Mamba', 'GCP-Mamba (perm. graph)', 'Mamba (no graph)',
                                 'GCP-Mamba (additive prior)']
 
 
@@ -328,6 +330,28 @@ def fig_scaling(path_csv='results/scaling.csv', path='manuscript/fig_scaling.pdf
     plt.close(fig)
 
 
+def table_split1(df):
+    """GEARS was retrained on split 1 only: compare all models on that split alone."""
+    d = df[df.seed == 1]
+    models = [m for m in BASELINES + ['GEARS', 'GCP-Mamba', 'Mamba (no graph)', 'GCP-Mamba (additive prior)']
+              if m in d.model.unique()]
+    cols = SUBGROUPS + ['all']
+    g = d.groupby(['model', 'subgroup']).mse_de20.mean().unstack()
+    g['all'] = d.groupby('model').mse_de20.mean()
+    lines = [r'\begin{table*}[!t]', r'\processtable{Norman data, split 1 only, including GEARS (retrained with '
+             r'the official implementation for 3 epochs; Methods): MSE on the top-20 DE genes (best in bold).'
+             r'\label{tab:split1}}{', r'\begin{tabular*}{\hsize}{@{\extracolsep{\fill}}l' + 'c' * len(cols) + '@{}}',
+             r'\toprule', 'Model & ' + ' & '.join(SUB_LABEL[c] for c in cols) + r' \\', r'\midrule']
+    for m in models:
+        cells = []
+        for c in cols:
+            v = g.loc[m, c] if c in g.columns else np.nan
+            cells.append((r'\textbf{%.3f}' if v == g.loc[models, c].min() else '%.3f') % v if np.isfinite(v) else '---')
+        lines.append(tex_name(m) + ' & ' + ' & '.join(cells) + r' \\')
+    lines += [r'\botrule', r'\end{tabular*}}{}', r'\end{table*}']
+    return '\n'.join(lines)
+
+
 def main():
     raw = pd.read_csv(RES)
     df = collapse_reps(raw)
@@ -337,7 +361,7 @@ def main():
         summary(df, metric).to_csv(f'results/summary_{metric}.csv', index=False)
     comp = comparisons(df)
     comp.to_csv('results/comparisons.csv', index=False)
-    main_models = [m for m in BASELINES + ['GEARS', 'GCP-Mamba'] if m in models]
+    main_models = [m for m in BASELINES + ['GCP-Mamba'] if m in models]
     abl_models = [m for m in ['GCP-Mamba'] + ABLATIONS + RESIDUAL if m in models]
     tex = [table_main(df, main_models, 'mse_de20', 3,
                       r'Norman et al.\ CRISPRa screen: MSE of the predicted expression change on the top-20 DE genes '
@@ -346,7 +370,7 @@ def main():
            table_main(df, abl_models, 'mse_de20', 3,
                       r'Ablations and residual variants on the Norman data: MSE on the top-20 DE genes '
                       r'(mean\,$\pm$\,s.d.\ over five splits; best in bold)', 'tab:ablation'),
-           table_gi(df, [m for m in BASELINES + ['GEARS', 'GCP-Mamba', 'Mamba (no graph)'] + RESIDUAL if m in models])]
+           table_gi(df, [m for m in BASELINES + ['GCP-Mamba', 'Mamba (no graph)'] + RESIDUAL if m in models])]
     for name, tex_s in (('audit', table_audit()), ('tests', table_tests(comp)), ('reps', table_reps(raw))):
         open(f'manuscript/supp_{name}.tex', 'w').write(tex_s + '\n')
     supp = [table_main(df, main_models + [m for m in ABLATIONS + RESIDUAL if m in models], 'pearson_delta_de20', 2,
@@ -354,6 +378,8 @@ def main():
                        r'(mean\,$\pm$\,s.d.\ over five splits; higher is better)', 'tab:pearson')]
     if os.path.exists('results/adamson_per_condition.csv'):
         tex.append(table_adamson('results/adamson_per_condition.csv'))
+    if 'GEARS' in df.model.unique():
+        tex.append(table_split1(df))
     open('manuscript/tables.tex', 'w').write('\n\n'.join(tex) + '\n')
     open('manuscript/supp_pearson.tex', 'w').write('\n\n'.join(supp) + '\n')
     fig_benchmark(df[df.model.isin(FIG_MODELS)], 'manuscript/fig_benchmark.pdf')
