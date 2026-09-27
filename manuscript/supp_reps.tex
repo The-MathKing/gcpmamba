@@ -1,0 +1,15 @@
+\begin{table}[h]
+\caption{Variation due to random initialisation on the Norman data. For each split, the MSE (top-20 DE genes, all test perturbations) of three independently initialised runs; shown are the mean over splits of the within-split range and standard deviation, and the mean split-level MSE.}\label{tab:reps}
+\centering\small
+\begin{tabular}{lrrr}
+\toprule
+Model & Mean MSE & Within-split s.d. & Within-split range \\
+\midrule
+GCP-Mamba & 0.290 & 0.024 & 0.046 \\
+GCP-Mamba (permuted graph) & 0.285 & 0.023 & 0.042 \\
+Mamba (no graph) & 0.278 & 0.016 & 0.032 \\
+Graph-MLP (no scan) & 0.288 & 0.017 & 0.033 \\
+GCP-Mamba (additive prior) & 0.225 & 0.001 & 0.003 \\
+\bottomrule
+\end{tabular}
+\end{table}

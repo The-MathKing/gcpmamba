@@ -22,9 +22,11 @@ response prediction: a controlled evaluation against simple baselines''}
 
 \section{Legacy perturbation encoding}
 Table~\ref{tab:audit} quantifies the encoding flaw described in Section~3.1 of the main text, computed
-with the original data loader (\texttt{data\_loader.py}) and split manifests
+with the original data loader (\texttt{legacy/data\_loader.py}) and split manifests
 (\texttt{splits/splits\_manifest\_*.json}) by \texttt{gcpm/audit\_hvg\_encoding.py}. HVGs were selected
 on training cells only, as in the original pipeline.
+
+\input{supp_audit.tex}
 
 \section{Model development on the validation set of split 1}
 All design decisions were made on the validation perturbations of split 1; test perturbations were not
@@ -50,9 +52,18 @@ Initial model (scalar readout, raw PCA loadings) & 0.00362 & equal to the train 
 \end{tabular}
 \end{table}
 
-\section{Statistical comparisons}
+\section{Statistical comparisons and initialisation variance}
 Table~\ref{tab:tests} lists all pairwise tests between GCP-Mamba and the other models on the Norman
-data. Table~\ref{tab:pearson} gives the Pearson correlation on the top-20 DE genes for every model.
+data (deep models averaged over initialisations). Table~\ref{tab:reps} shows how much the split-level
+error of each model changes between initialisations; the within-split range is of the same size as
+the differences between graph-conditioned and graph-free variants. Table~\ref{tab:pearson} gives the
+Pearson correlation on the top-20 DE genes for every model.
+
+\input{supp_tests.tex}
+
+\input{supp_reps.tex}
+
+\input{supp_pearson.tex}
 
 \section{Hyperparameters and compute}
 \begin{table}[h]
@@ -77,6 +88,5 @@ Hardware & 4-core CPU, no GPU\\
 \end{tabular}
 \end{table}
 
-\input{tables_supp.tex}
 
 \end{document}

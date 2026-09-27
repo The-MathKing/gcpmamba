@@ -267,11 +267,11 @@ def table_gi(df, models):
     g2 = summary(d, 'gi_pearson_de20')
     g2 = g2[g2.subgroup == 'all'].set_index('model')
     lines = [r'\begin{table}[!t]', r'\processtable{Prediction of genetic interactions (GI) in double perturbations '
-             r'whose two single perturbations were both observed during training (``2/2 seen\'\'; top-20 DE genes; '
+             r"whose two single perturbations were both observed during training (``2/2 seen''; top-20 DE genes; "
              r'mean\,$\pm$\,s.d.\ over five splits). $R^2_{\mathrm{GI}}$ is the fraction of '
              r'the variance of the GI residual $\boldsymbol{\epsilon}$ that a prediction explains; an exactly '
-             r'additive prediction scores 0. The GI Pearson $r$ gives the trivial \emph{No change} and '
-             r'\emph{Train mean} predictors scores close to those of the deep models.\label{tab:gi}}{',
+             r'additive prediction scores 0. The GI Pearson $r$ (undefined for the additive baseline) ranks '
+             r'the models almost in reverse order of $R^2_{\mathrm{GI}}$.\label{tab:gi}}{',
              r'\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lcc@{}}', r'\toprule',
              r'Model & $R^2_{\mathrm{GI}}$ $\uparrow$ & GI Pearson $r$ $\uparrow$ \\', r'\midrule']
     for m in models:
@@ -289,10 +289,11 @@ def table_adamson(path):
         g = summary(df, metric)
         rows.append(g[g.subgroup == 'all'].set_index('model'))
     models = [m for m in ORDER if m in df.model.unique()]
-    lines = [r'\begin{table}[!t]', r'\processtable{Adamson et al.\ CRISPRi screen, unseen single perturbations '
-             r'(mean\,$\pm$\,s.d.\ over five GEARS simulation splits).\label{tab:adamson}}{',
+    lines = [r'\begin{table}[!t]', r'\processtable{Adamson et al.\ CRISPRi screen, unseen single perturbations: '
+             r'MSE and Pearson $r$ of the predicted change on the top-20 DE genes '
+             r'(mean\,$\pm$\,s.d.\ over five GEARS simulation splits).\label{tab:adamson}}{\small',
              r'\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lcc@{}}', r'\toprule',
-             r'Model & MSE (top-20 DE) $\downarrow$ & Pearson $r$ (top-20 DE) $\uparrow$ \\', r'\midrule']
+             r'Model & MSE $\downarrow$ & Pearson $r$ $\uparrow$ \\', r'\midrule']
     for m in models:
         lines.append(f"{tex_name(m)} & {fmt(rows[0].loc[m, 'mean'], rows[0].loc[m, 'std'])} & "
                      f"{fmt(rows[1].loc[m, 'mean'], rows[1].loc[m, 'std'], 2)} \\\\")
@@ -319,14 +320,15 @@ def main():
                       r'Ablations and residual variants on the Norman data: MSE on the top-20 DE genes '
                       r'(mean\,$\pm$\,s.d.\ over five splits; best in bold)', 'tab:ablation'),
            table_gi(df, [m for m in BASELINES + ['GEARS', 'GCP-Mamba', 'Mamba (no graph)'] + RESIDUAL if m in models])]
-    supp_extra = [table_audit(), table_tests(comp), table_reps(raw)]
+    for name, tex_s in (('audit', table_audit()), ('tests', table_tests(comp)), ('reps', table_reps(raw))):
+        open(f'manuscript/supp_{name}.tex', 'w').write(tex_s + '\n')
     supp = [table_main(df, main_models + [m for m in ABLATIONS + RESIDUAL if m in models], 'pearson_delta_de20', 2,
                        r'Pearson correlation of predicted and observed expression change on the top-20 DE genes '
                        r'(mean\,$\pm$\,s.d.\ over five splits; higher is better)', 'tab:pearson')]
     if os.path.exists('results/adamson_per_condition.csv'):
         tex.append(table_adamson('results/adamson_per_condition.csv'))
     open('manuscript/tables.tex', 'w').write('\n\n'.join(tex) + '\n')
-    open('manuscript/tables_supp.tex', 'w').write('\n\n'.join(supp_extra + supp) + '\n')
+    open('manuscript/supp_pearson.tex', 'w').write('\n\n'.join(supp) + '\n')
     fig_benchmark(df[df.model.isin(FIG_MODELS)], 'manuscript/fig_benchmark.pdf')
     fig_gi(df, 'manuscript/fig_gi.pdf')
     print(summary(df, 'mse_de20').pivot(index='model', columns='subgroup', values='mean').round(4).to_string())

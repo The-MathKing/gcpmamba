@@ -36,15 +36,18 @@ asked whether conditioning an SSM on a gene--gene co-expression graph closes thi
 \textbf{Results:} We introduce GCP-Mamba, a bidirectional selective SSM over all 5,045 measured
 genes in which the diffusion of the perturbation over a control-cell co-expression graph modulates
 the discretization step of every gene token. On the five standard GEARS splits of the Norman
-et al.\ CRISPRa screen, GCP-Mamba gave the lowest error of all methods on unseen single
-perturbations, and the true graph outperformed both a label-permuted graph and no graph there.
-For double perturbations, however, the additive sum of single-perturbation effects remained
-the best predictor, no model explained any of the variance of genetic interactions beyond it, and
-graph conditioning of the step size itself had no measurable effect. We also document two
+et al.\ CRISPRa screen, with three initialisations per split, GCP-Mamba clearly improved on
+predicting no change or the mean response for double perturbations, but it was less accurate than
+the sum of single-perturbation effects, and it was not more accurate than the mean response, a
+linear model or its own graph-free and graph-permuted ablations for unseen single perturbations.
+Conditioning the step size on the graph had no measurable effect. When the network predicted
+only the deviation from the additive sum, it matched but did not improve on the additive
+prediction: no model explained any genetic-interaction variance beyond additivity. On the Adamson
+et al.\ CRISPRi screen all methods were within noise of the mean response. We also document two
 evaluation pitfalls: a perturbation encoding restricted to highly variable genes that silently
-discarded 80\% of training perturbations in an earlier version of this work, and a
-genetic-interaction correlation metric that scores a predictor of no change close to trained
-models.\\
+gave 80\% of training perturbations an all-zero input in an earlier version of this work, and a
+genetic-interaction correlation metric that ranked models in the reverse order of the variance
+they explained.\\
 \textbf{Availability and implementation:} Code, splits and all per-condition results are
 available at \url{https://github.com/The-MathKing/gcpmamba} (MIT license).\\
 \textbf{Contact:} \href{mailto:aryan.padarthi@student.allenisd.org}{aryan.padarthi@student.allenisd.org}\\
@@ -181,7 +184,9 @@ over all genes. Models were trained for at least 40 and at most 100 epochs and s
 after the last improvement of the validation loss; the state with the lowest validation loss was
 kept. (The validation loss typically plateaus for several epochs before a model starts to use the
 perturbation; without the 40-epoch minimum, patience-based stopping truncated some runs during
-this plateau.) The model seed equals the split seed. All runs used a 4-core CPU; one training run
+this plateau.) GCP-Mamba, the permuted-graph, graph-free, Graph-MLP and additive-prior variants were
+trained with three initialisations per split (seeds $s$, $s+1000$, $s+2000$ for split $s$; for the
+permuted graph the permutation is redrawn with the seed); the other ablations with one. All runs used a 4-core CPU; one training run
 took 5--25 minutes.
 
 \subsection{Ablations and variants}
@@ -221,7 +226,7 @@ report the fraction of GI variance explained,
 $R^2_{\mathrm{GI}}=1-\sum_{AB}\mathrm{MSE}_{AB}\big/\sum_{AB}\overline{\epsilon^2_{AB}}$, on ``2/2
 seen'' doubles, where the additive baseline is exactly the measured-singles sum and scores 0, and the
 Pearson correlation between predicted and observed residuals used in earlier work. Metrics were
-averaged over the test perturbations of a split and are reported as mean\,$\pm$\,s.d.\ over the
+averaged over initialisations, then over the test perturbations of a split and are reported as mean\,$\pm$\,s.d.\ over the
 five splits. We compared GCP-Mamba with every other model using two-sided Wilcoxon signed-rank tests
 on per-perturbation differences pooled across splits, with Holm correction within each
 metric and test group (Supplementary Table~S3). Because perturbations recur across splits these
@@ -256,122 +261,132 @@ model whose perturbation input is indexed by the output gene set. Here every tar
 by its own token and by an embedding computed from control cells, and we recommend that
 perturbation models report how many targets reach the input.
 
-\subsection{Unseen single perturbations benefit from the graph; double perturbations do not}
+\subsection{GCP-Mamba does not outperform simple baselines}
 
 Table~\ref{tab:main} and Figure~\ref{fig:bench} compare GCP-Mamba with the baselines and GEARS on
 the Norman data. As in previous benchmarks \citep{ahlmann2025}, the additive baseline was the most
-accurate predictor overall (MSE 0.240 on the top-20 DE genes, averaged over all test perturbations) %NUM
-and for doubles with at least one seen target; for ``2/2 seen'' doubles its error (0.089) was half %NUM
-that of any trained model. GCP-Mamba (0.278) improved substantially on the train-mean (0.428), %NUM
-linear (0.349) and no-change (0.561) baselines, and on GEARS (TBD). %NUM
+accurate predictor overall (MSE on the top-20 DE genes 0.224, averaged over all test
+perturbations), and for doubles with at least one seen target; for ``2/2 seen'' doubles its error
+(0.048) was a quarter of that of GCP-Mamba (0.196). GCP-Mamba (0.290 overall) was substantially
+more accurate than the train-mean (0.428), linear (0.349) and no-change (0.561) baselines, and
+GEARS reached TBD. %NUM GEARS
 
-For unseen single perturbations, where no additive information exists, GCP-Mamba had the lowest
-error of all methods (0.255 vs.\ 0.270 for the train mean, 0.269 for the linear model and TBD for %NUM
-GEARS; Holm-adjusted $P=0.039$ vs.\ train mean and $P=0.24$ vs.\ the linear model). On the same %NUM
-perturbations the true co-expression graph outperformed a label-permuted graph (0.257; $P=0.017$) %NUM
-and no graph (0.266; $P=0.014$), so the gain on unseen singles depends on the content of the graph %NUM
-and not only on its presence. The effects are small, however: the median per-perturbation
-improvement over the train mean was 0.003 (1--2\% of the error), smaller than the variation %NUM
-between splits (Fig.~\ref{fig:bench}). For doubles with only one seen target (``1/2 seen'') the
-recurrent models were far behind the additive baseline (0.309 vs.\ 0.239) and adding the graph to %NUM
-the tokens increased the error relative to no graph (0.309 vs.\ 0.292; $P=0.019$). %NUM
+For unseen single perturbations, where no additive information exists, all methods except the
+no-change baseline were close together (MSE 0.260--0.281). GCP-Mamba (0.261) was not significantly
+more accurate than the train mean (0.270; Holm-adjusted $P=0.42$), the linear model (0.269;
+$P=1$), the graph-free Mamba (0.265; $P=1$) or the model with a permuted graph (0.265; $P=0.08$).
+In an earlier run with a single initialisation per split, GCP-Mamba had appeared significantly
+better than both graph controls on these perturbations; that difference was of the same size as
+the change caused by re-initialising GCP-Mamba alone (0.255 vs.\ 0.261), and it disappeared when
+the three initialisations were averaged (Supplementary Table~S4). We report this because a
+single-seed comparison would have led us to claim a graph effect that is not there.
 
 \begin{figure*}[!t]
 \centerline{\includegraphics[width=\textwidth]{fig_benchmark.pdf}}
 \caption{Norman et al.\ CRISPRa data, five GEARS simulation splits. Each large dot is the mean over
-splits and each small dot one split; columns are test groups. Top: MSE on the top-20 DE genes of each
-test perturbation (lower is better). Bottom: Pearson correlation of predicted and observed change on
-the same genes (undefined for \emph{No change}). Grey, baselines; orange, GEARS; blue, GCP-Mamba and
-variants.}\label{fig:bench}
+splits and each small dot one split (deep models averaged over initialisations); columns are test
+groups. Top: MSE on the top-20 DE genes of each test perturbation (lower is better). Bottom: Pearson
+correlation of predicted and observed change on the same genes (undefined for \emph{No change}).
+Grey, baselines; orange, GEARS; blue, GCP-Mamba and variants.}\label{fig:bench}
 \end{figure*}
 
 \input{tables.tex}
 
-\subsection{Graph conditioning of the step size has no measurable effect}
-Table~\ref{tab:ablation} isolates the components of GCP-Mamba. Conditioning the step size alone
-($\Delta$ only) gave results indistinguishable from a plain bidirectional Mamba without the graph %NUM
-(0.274 vs.\ 0.269 overall), and the learned conditioning weights stayed close to their zero %NUM
-initialisation ($\|\mathbf{w}_c\|=0.07$ per SSM, against 0.56 when the graph is also added to the %NUM
-tokens). This was not merely a failure to move away from zero: initialising $\mathbf{w}_c$ randomly, %NUM
-so that the step size depends strongly on graph proximity from the first update
-($\|\mathbf{w}_c\|\approx5.8$ after training), again changed the error only marginally (0.276). %NUM
-Graph proximity to the perturbation thus had little influence on how the SSM propagates information,
-whichever way the conditioning was initialised. What distinguished the models was instead the
-recurrence: replacing the scan with per-gene MLPs increased the error (0.291 vs.\ 0.278; %NUM
-$P=4\times10^{-4}$), while the Fiedler ordering was not better than a random order (0.276). %NUM
+\subsection{Neither the graph nor the step-size conditioning helps}
+Table~\ref{tab:ablation} isolates the components of GCP-Mamba. Every variant without the graph in
+the token features was at least as accurate as GCP-Mamba overall: the graph-free Mamba (0.278),
+the $\Delta$-only variant (0.279), the variant with randomly initialised conditioning weights
+(0.276) and the variant with a random gene order (0.278); with the permuted graph, the error was
+0.285 (all differences from GCP-Mamba significant, Holm-adjusted $P\leq1.1\times10^{-4}$;
+Supplementary Table~S3). Conditioning the step size alone ($\Delta$ only) was indistinguishable from
+the graph-free model, although its conditioning weights moved away from their zero initialisation
+($\|\mathbf{w}_c\|=0.48$ per SSM after training), and initialising the weights at random so that the
+step size depends strongly on graph proximity from the first update ($\|\mathbf{w}_c\|\approx5.8$
+after training) changed the error only marginally. Replacing the recurrence with per-gene MLPs did
+not change the error of the graph-conditioned model (0.288 vs.\ 0.290; $P=0.83$), and the Fiedler
+ordering was not better than a random order. In short, none of the components that distinguish
+GCP-Mamba from a generic model contributed measurably to accuracy.
 
-\subsection{No model predicts genetic interactions beyond the additive baseline}
-Double perturbations are interesting chiefly for their non-additive component. Letting the network
-predict the residual with respect to the additive prior closed the gap to the additive baseline
-overall (0.238 vs.\ 0.240) but did not improve on it (Table~\ref{tab:ablation}), and on ``2/2 seen'' %NUM
-doubles no trained model explained any of the GI variance: $R^2_{\mathrm{GI}}$ was essentially zero
-for the residual models (i.e.\ they learned a negligible correction to the additive prior) and
-strongly negative for all others (Table~\ref{tab:gi}).
+\subsection{No model predicts genetic interactions beyond additivity}
+Double perturbations are interesting chiefly for their non-additive component. When the network
+predicted only the deviation from the additive prior, it matched the additive baseline (0.225 vs.\
+0.224 overall; Table~\ref{tab:ablation}) and, on ``2/2 seen'' doubles, explained none of the GI
+variance ($R^2_{\mathrm{GI}}=0.005\pm0.025$ for GCP-Mamba with the prior, $-0.005\pm0.061$ without the
+graph; Table~\ref{tab:gi}): it learned a negligible correction to the additive prediction. All deep models
+without the prior had strongly negative $R^2_{\mathrm{GI}}$ (from $-2.2$ to $-3.1$), i.e.\ their errors
+on these doubles were two to three times larger than the interaction itself.
 
 The GI Pearson correlation, used to assess GI prediction in earlier work including the first version
-of this study, told a different story (Fig.~\ref{fig:gi}). It rated the recurrent models above the
-additive baseline, and it gave the trivial no-change and train-mean predictors values (0.23 and 0.26) %NUM
-comparable to the additive baseline and the linear model. This happens because predicting no change
-yields a predicted residual of $-(\bm\delta_A+\bm\delta_B)$, which is correlated with the true
-residual whenever the interaction is buffering (sub-additive), as it often is. A correlation between
-residuals therefore rewards shrinkage towards zero and should not be used alone to claim GI
-prediction; a variance-explained measure relative to the additive prediction avoids this.
+of this study, ranked the models almost in reverse (Fig.~\ref{fig:gi}). It was highest (0.36--0.39) for
+the models whose $R^2_{\mathrm{GI}}$ was most negative, lowest for the additive-prior models (0.14 and
+0.20), and gave the trivial no-change and train-mean predictors scores (0.25 and 0.29) comparable to
+the linear model. Predicting no change yields a predicted residual of $-(\bm\delta_A+\bm\delta_B)$,
+which is correlated with the true residual whenever interactions are buffering (sub-additive); in
+general, any prediction that is shrunk towards zero inherits this correlation, whereas a prediction
+close to the additive sum has a small, noisy residual whose correlation is low. A correlation between
+residuals therefore should not be used alone to claim GI prediction; a variance-explained measure
+relative to the additive prediction avoids the problem.
 
-\begin{figure}[!t]
-\centerline{\includegraphics[width=\columnwidth]{fig_gi.pdf}}
+\begin{figure*}[!t]
+\centerline{\includegraphics[width=0.85\textwidth]{fig_gi.pdf}}
 \caption{Genetic-interaction prediction on ``2/2 seen'' doubles of the Norman data. Left: Pearson
-correlation between predicted and observed GI residuals, which rates trivial predictors close to
-trained models. Right: fraction of GI variance explained ($R^2_{\mathrm{GI}}$; the additive baseline
-is 0 by construction). Dots as in Fig.~\ref{fig:bench}.}\label{fig:gi}
-\end{figure}
+correlation between predicted and observed GI residuals (undefined for the additive baseline, whose
+predicted residual is zero). Right: fraction of GI variance explained, $R^2_{\mathrm{GI}}$ (the
+additive baseline is 0 by construction). Dots as in Fig.~\ref{fig:bench}.}\label{fig:gi}
+\end{figure*}
 
 \subsection{Adamson CRISPRi screen}
-On the Adamson data, which contain only single perturbations, TBD (Table~\ref{tab:adamson}). %NUM
+On the Adamson data, which contain only single perturbations, all methods other than the
+no-change baseline had MSEs between 0.161 and 0.171 and Pearson correlations between 0.79 and 0.81,
+differences far smaller than the variation between splits (s.d.\ 0.05--0.07;
+Table~\ref{tab:adamson}). No method was distinguishable from the train mean (0.171), in line with the
+low perturbation-specific variance of this dataset reported by \citet{csendes2025}. TBD GEARS %NUM
 
 \subsection{Computational cost}
-Figure~\ref{fig:scaling} reports the measured time and peak memory of one training step as a function
-of the number of gene tokens. TBD %NUM
+TBD %NUM scaling
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Discussion}
 
 We set out to test whether conditioning a linear-time state-space model on a gene--gene graph yields
-better predictions of perturbation responses than simple baselines. With inputs that represent every
-perturbation, a training procedure that starts from the train-mean prediction, and controls that
-isolate each component, the answer is mixed. The graph helped where the model has least to go on---
-single perturbations of genes never perturbed in training---and a permuted graph did not, so the model
-does extract information from co-expression neighbourhoods. The improvement was, however, small and
-comparable to the variation between splits. For double perturbations, the sum of single effects
-remained the best predictor, consistent with \citet{ahlmann2025}, and none of our models, nor GEARS,
-explained any of the variance of genetic interactions beyond it.
+better predictions of genetic perturbation responses than simple baselines. With inputs that
+represent every perturbation, a training procedure that starts from the train-mean prediction,
+controls that isolate each component and three initialisations per split, the answer is no. For
+double perturbations, the sum of single effects remained the best predictor, consistent with
+\citet{ahlmann2025}, and neither GCP-Mamba, its variants nor GEARS explained any of the variance of
+genetic interactions beyond it. For unseen single perturbations, all reasonable methods were within a
+few per cent of the mean response. The mechanism that motivated the architecture---modulating the SSM
+step size by graph proximity to the perturbation---had no measurable effect, and removing the graph
+altogether did not make predictions worse.
 
-The mechanism that motivated the architecture---modulating the SSM step size by graph proximity---had
-no measurable effect in any of our experiments, whether the conditioning weights started at zero or
-at random values. The benefit on unseen singles came from supplying the graph signal as a token
-feature, which a non-recurrent model can also exploit. We see two reasons. First, a step-size change
-alters how quickly the state forgets, but with a bidirectional scan over 5,045 tokens and short
-effective memory, most of the information a token needs is already available locally or through the
-shared perturbation embedding. Second, the Norman responses are dominated by a few programs (e.g.\
-erythroid and granulocyte differentiation in K562), so a low-rank readout captures most of the
-explainable variance, leaving little that a gene-specific propagation mechanism could add.
+We see two reasons why the graph did not help. First, the explainable signal in these screens is
+low-dimensional: the Norman responses are dominated by a few differentiation programmes in K562
+\citep{norman2019}, and the Adamson responses by the unfolded protein response \citep{adamson2016},
+so a low-rank readout of a perturbation embedding captures most of what can be predicted, leaving
+little for a gene-specific propagation mechanism to add. Second, co-expression in unperturbed cells
+may say little about how a specific perturbation propagates; knowledge graphs of regulatory or
+physical interactions \citep{roohani2024,wenkel2026} or perturbation-derived graphs might carry more
+relevant information, and our code allows any graph to be substituted.
 
-Our results carry three practical lessons. (i) The input encoding must be audited: an encoding tied
-to the output gene set discarded most perturbations in an earlier version of this work without any
-visible symptom in training. (ii) Deep models for this task should be initialised at, or explicitly
-compared with, the train-mean and additive predictors; without that initialisation our model did not
-improve on the train mean at all. (iii) Genetic-interaction prediction should be measured as variance
-explained relative to the additive prediction on doubles whose singles were observed; correlations
-between residuals reward shrinkage.
+Our experience carries four practical lessons for developing and evaluating such models.
+(i) Audit the input encoding: an encoding tied to the output gene set gave most perturbations an
+all-zero input in an earlier version of this work, without any visible symptom in training.
+(ii) Initialise deep models at, and always compare them with, the train-mean and additive
+predictors; without that initialisation our model did not improve on the train mean at all.
+(iii) Use several initialisations: a single-seed comparison suggested a graph effect that did not
+survive replication. (iv) Measure genetic-interaction prediction as variance explained relative to
+the additive prediction on doubles whose singles were observed; correlations between residuals can
+rank models in reverse.
 
 \textbf{Limitations.} We evaluated two K562 screens with the standard GEARS splits; screens in other
 cell types, genome-wide single-perturbation screens and larger combinatorial libraries may behave
 differently, and the Replogle et al.\ screens could not be included because most of their targets are
-not among the measured genes in the GEARS release, which our token-based encoding requires. Each
-split was trained with one seed, so between-split variation includes model-initialisation variation.
-Hyperparameters were chosen on the validation set of the first split only, and not tuned per variant.
-We used a single co-expression graph from control cells; knowledge graphs such as Gene Ontology or
-protein interaction networks \citep{roohani2024,wenkel2026} might carry complementary information.
-Finally, our PyTorch scan runs on CPU; a fused GPU kernel would change absolute run times but not
+not among the measured genes in the GEARS release, which our token-based encoding requires.
+Hyperparameters were chosen on the validation set of the first split only and not tuned per variant;
+a larger search could change absolute errors, although the additive baseline was not approached by
+any variant. We used a single co-expression graph computed from control cells. GEARS was run on CPU
+with its default hyperparameters; its training-set evaluation, used only for logging, was skipped to
+fit in memory. Our PyTorch scan runs on CPU; a fused GPU kernel would change absolute run times but not
 the linear scaling.
 
 \section*{Acknowledgements}

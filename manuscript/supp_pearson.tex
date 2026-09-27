@@ -1,0 +1,26 @@
+\begin{table*}[!t]
+\processtable{Pearson correlation of predicted and observed expression change on the top-20 DE genes (mean\,$\pm$\,s.d.\ over five splits; higher is better)\label{tab:pearson}}{
+\begin{tabular*}{\hsize}{@{\extracolsep{\fill}}lccccc@{}}
+\toprule
+Model & Unseen single & Double, 0/2 seen & Double, 1/2 seen & Double, 2/2 seen & All test \\
+\midrule
+No change & --- & --- & --- & --- & --- \\
+Train mean & 0.53\,$\pm$\,0.05 & 0.72\,$\pm$\,0.12 & 0.66\,$\pm$\,0.06 & 0.67\,$\pm$\,0.07 & 0.62\,$\pm$\,0.04 \\
+Additive & 0.54\,$\pm$\,0.05 & 0.70\,$\pm$\,0.15 & 0.82\,$\pm$\,0.03 & 0.97\,$\pm$\,0.01 & 0.75\,$\pm$\,0.03 \\
+Linear (PCA) & 0.52\,$\pm$\,0.07 & 0.64\,$\pm$\,0.18 & 0.73\,$\pm$\,0.03 & 0.84\,$\pm$\,0.04 & 0.67\,$\pm$\,0.03 \\
+Linear (ctrl emb.) & 0.52\,$\pm$\,0.05 & 0.70\,$\pm$\,0.09 & 0.69\,$\pm$\,0.06 & 0.76\,$\pm$\,0.08 & 0.65\,$\pm$\,0.05 \\
+\midrule
+GCP-Mamba & 0.55\,$\pm$\,0.08 & 0.71\,$\pm$\,0.13 & 0.76\,$\pm$\,0.03 & 0.86\,$\pm$\,0.04 & 0.71\,$\pm$\,0.04 \\
+\midrule
+GCP-Mamba ($\Delta$ only) & 0.57\,$\pm$\,0.06 & 0.71\,$\pm$\,0.15 & 0.76\,$\pm$\,0.02 & 0.87\,$\pm$\,0.03 & 0.72\,$\pm$\,0.03 \\
+GCP-Mamba ($\Delta$ only, $\mathbf{w}_c\sim\mathcal{N}(0,1)$) & 0.56\,$\pm$\,0.07 & 0.72\,$\pm$\,0.14 & 0.76\,$\pm$\,0.03 & 0.88\,$\pm$\,0.03 & 0.71\,$\pm$\,0.04 \\
+GCP-Mamba (permuted graph) & 0.53\,$\pm$\,0.08 & 0.68\,$\pm$\,0.16 & 0.76\,$\pm$\,0.03 & 0.86\,$\pm$\,0.03 & 0.70\,$\pm$\,0.04 \\
+GCP-Mamba (random order) & \textbf{0.58\,$\pm$\,0.08} & \textbf{0.73\,$\pm$\,0.12} & 0.77\,$\pm$\,0.03 & 0.88\,$\pm$\,0.02 & 0.72\,$\pm$\,0.04 \\
+Mamba (no graph) & 0.55\,$\pm$\,0.08 & 0.70\,$\pm$\,0.14 & 0.77\,$\pm$\,0.03 & 0.87\,$\pm$\,0.03 & 0.71\,$\pm$\,0.04 \\
+Graph-MLP (no scan) & 0.55\,$\pm$\,0.06 & 0.68\,$\pm$\,0.17 & 0.77\,$\pm$\,0.02 & 0.86\,$\pm$\,0.03 & 0.70\,$\pm$\,0.03 \\
+\midrule
+GCP-Mamba (additive prior) & 0.53\,$\pm$\,0.06 & 0.70\,$\pm$\,0.17 & 0.82\,$\pm$\,0.03 & 0.98\,$\pm$\,0.01 & 0.74\,$\pm$\,0.03 \\
+Mamba (additive prior) & 0.54\,$\pm$\,0.06 & 0.70\,$\pm$\,0.18 & \textbf{0.82\,$\pm$\,0.03} & \textbf{0.98\,$\pm$\,0.01} & \textbf{0.75\,$\pm$\,0.04} \\
+\botrule
+\end{tabular*}}{}
+\end{table*}

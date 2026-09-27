@@ -37,7 +37,7 @@ Mamba (additive prior) & 0.278\,$\pm$\,0.087 & 0.506\,$\pm$\,0.316 & 0.219\,$\pm
 \end{table*}
 
 \begin{table}[!t]
-\processtable{Prediction of genetic interactions (GI) in double perturbations whose two single perturbations were both observed during training (``2/2 seen\'\'; top-20 DE genes; mean\,$\pm$\,s.d.\ over five splits). $R^2_{\mathrm{GI}}$ is the fraction of the variance of the GI residual $\boldsymbol{\epsilon}$ that a prediction explains; an exactly additive prediction scores 0. The GI Pearson $r$ gives the trivial \emph{No change} and \emph{Train mean} predictors scores close to those of the deep models.\label{tab:gi}}{
+\processtable{Prediction of genetic interactions (GI) in double perturbations whose two single perturbations were both observed during training (``2/2 seen''; top-20 DE genes; mean\,$\pm$\,s.d.\ over five splits). $R^2_{\mathrm{GI}}$ is the fraction of the variance of the GI residual $\boldsymbol{\epsilon}$ that a prediction explains; an exactly additive prediction scores 0. The GI Pearson $r$ (undefined for the additive baseline) ranks the models almost in reverse order of $R^2_{\mathrm{GI}}$.\label{tab:gi}}{
 \begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lcc@{}}
 \toprule
 Model & $R^2_{\mathrm{GI}}$ $\uparrow$ & GI Pearson $r$ $\uparrow$ \\
@@ -56,10 +56,10 @@ Mamba (additive prior) & -0.01\,$\pm$\,0.06 & 0.20\,$\pm$\,0.07 \\
 \end{table}
 
 \begin{table}[!t]
-\processtable{Adamson et al.\ CRISPRi screen, unseen single perturbations (mean\,$\pm$\,s.d.\ over five GEARS simulation splits).\label{tab:adamson}}{
+\processtable{Adamson et al.\ CRISPRi screen, unseen single perturbations: MSE and Pearson $r$ of the predicted change on the top-20 DE genes (mean\,$\pm$\,s.d.\ over five GEARS simulation splits).\label{tab:adamson}}{\small
 \begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lcc@{}}
 \toprule
-Model & MSE (top-20 DE) $\downarrow$ & Pearson $r$ (top-20 DE) $\uparrow$ \\
+Model & MSE $\downarrow$ & Pearson $r$ $\uparrow$ \\
 \midrule
 No change & 0.361\,$\pm$\,0.051 & --- \\
 Train mean & 0.171\,$\pm$\,0.065 & 0.79\,$\pm$\,0.10 \\
