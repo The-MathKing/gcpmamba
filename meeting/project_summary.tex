@@ -1,0 +1,75 @@
+\documentclass[10pt]{article}
+\usepackage[margin=1.7cm,top=1.4cm,bottom=1.4cm]{geometry}
+\usepackage{lmodern,booktabs,amsmath}
+\usepackage[T1]{fontenc}
+\usepackage[hidelinks]{hyperref}
+\usepackage{enumitem}
+\setlist{nosep,leftmargin=1.2em}
+\pagestyle{empty}
+\setlength{\parskip}{3pt}\setlength{\parindent}{0pt}
+\begin{document}
+
+{\large\textbf{Project summary: Graph-conditioned state-space models for genetic perturbation
+response prediction}}\\[2pt]
+Aryan Padarthi and Riley Huynh (Allen High School) \quad$\cdot$\quad Draft for \emph{Bioinformatics}
+(Oxford) \quad$\cdot$\quad Code: \url{https://github.com/The-MathKing/gcpmamba}
+
+\textbf{Problem.} CRISPR Perturb-seq screens measure how the whole transcriptome responds when genes are
+switched on or off, but only a tiny fraction of gene \emph{combinations} can be measured (131 of 5,460
+possible pairs in the Norman et al.\ 2019 screen). Models that predict unmeasured perturbations---and
+especially \emph{genetic interactions}, where two perturbations together do something other than the sum
+of their effects---are a major goal. Recent work (Ahlmann-Eltze et al., \emph{Nat.\ Methods} 2025) showed
+that deep models rarely beat simple baselines such as ``add up the two single effects''.
+
+\textbf{Our idea.} Mamba-style state-space models (SSMs) process long sequences in linear time, so they
+can take all ${\sim}5{,}000$ measured genes as tokens. Genes have no natural order and an SSM does not know
+which genes are related, so we \emph{conditioned the SSM's discretization step on a gene co-expression
+graph}: genes close (in the graph) to the perturbed gene take larger update steps. We call it GCP-Mamba.
+
+\textbf{What we did.} Benchmarked on the 5 standard GEARS splits of the Norman K562 CRISPRa screen and on
+the Adamson CRISPRi screen, against 5 simple baselines and GEARS, with 8 ablations (graph removed,
+permuted, relocated; gene order randomised; recurrence removed; additive prior), 3 random initialisations
+per split, and Holm-corrected tests.
+
+\textbf{Results (MSE on the top-20 differentially expressed genes; lower is better).}\\[-4pt]
+\begin{center}\small
+\begin{tabular}{lccc}
+\toprule
+Model & All test perturbations & Unseen single genes & Doubles, both singles seen\\
+\midrule
+Predict no change & 0.561 & 0.346 & 0.647\\
+Predict training mean & 0.428 & 0.270 & 0.485\\
+Additive (sum of single effects) & \textbf{0.224} & 0.279 & \textbf{0.048}\\
+Linear model (Ahlmann-Eltze 2025) & 0.349 & 0.269 & 0.296\\
+GCP-Mamba (ours) & 0.290 & \textbf{0.261} & 0.196\\
+Same model, graph removed & 0.278 & 0.265 & 0.169\\
+\bottomrule
+\end{tabular}
+\end{center}
+\vspace{-4pt}
+\begin{itemize}
+\item The \textbf{additive baseline is the best predictor}; no model explains any genetic-interaction
+variance beyond additivity.
+\item The \textbf{graph and the graph-conditioned step size give no reliable benefit}: removing or
+permuting the graph does not make predictions worse. GEARS (Gene Ontology graph; one split, reduced
+training) \emph{did} predict unseen genes better (0.214), suggesting the co-expression prior is the weak part.
+\item The scan scales linearly (self-attention runs out of memory at 5,000 genes), but a sparse graph
+network is 10--40$\times$ cheaper.
+\end{itemize}
+
+\textbf{Contributions beyond the model (evaluation pitfalls).}
+\begin{enumerate}
+\item \emph{Input encoding.} Our first version encoded perturbations only over the 500 most variable genes;
+${\sim}80\%$ of training perturbations silently became all-zero inputs, which invalidated its conclusions.
+\item \emph{Seeds.} A single-initialisation comparison showed a ``significant'' graph effect that vanished
+with 3 initialisations (initialisation alone moves the error more than the graph does).
+\item \emph{Metric.} The genetic-interaction \emph{Pearson} metric used in earlier work ranks models almost in
+reverse of the interaction variance they explain; we propose a variance-explained measure ($R^2_{\mathrm{GI}}$).
+\end{enumerate}
+
+\textbf{Status and where we would value advice.} Full 7-page draft and supplement are written; all numbers
+regenerate from the repository. Open questions: whether the negative/evaluation framing suits
+\emph{Bioinformatics} or a different venue; how to strengthen the GEARS comparison (we are CPU-only); whether
+to swap in a knowledge graph; and whether our statistics are appropriate.
+
+\end{document}
