@@ -4,7 +4,7 @@
 \usepackage[hidelinks]{hyperref}
 \usepackage{times}
 % the generated tables use the Bioinformatics template macros
-\newcommand{\processtable}[3]{\caption{#1}\centering\small #2 #3}
+\newcommand{\processtable}[3]{\caption{#1}\centering\footnotesize #2 #3}
 \newcommand{\botrule}{\bottomrule}
 \renewcommand{\thetable}{S\arabic{table}}
 \renewcommand{\thefigure}{S\arabic{figure}}
@@ -38,7 +38,7 @@ train mean 0.00361, the linear model 0.00312 and the additive baseline 0.00244 o
 \begin{table}[h]
 \caption{Pilot runs of GCP-Mamba on the validation perturbations of split 1.}\label{tab:pilot}
 \centering\small
-\begin{tabular}{lll}
+\begin{tabular}{p{6.4cm}cp{5.6cm}}
 \toprule
 Change & Best validation MSE & Observation\\
 \midrule
