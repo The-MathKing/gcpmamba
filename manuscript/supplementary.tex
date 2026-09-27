@@ -82,7 +82,7 @@ Scan chunk length, log-decay clamp & 16, $-5$\\
 Optimiser & AdamW, lr $10^{-3}$, weight decay $10^{-2}$, batch 8, clip 1.0\\
 Dropout (perturbation encoder) & 0.1\\
 Epochs & min.\ 40, max.\ 100, patience 15 on validation MSE\\
-Seeds & model seed = split seed (1--5)\\
+Seeds & split $s$: $s$, $s+1000$, $s+2000$ (three initialisations for the main variants)\\
 Hardware & 4-core CPU, no GPU\\
 \bottomrule
 \end{tabular}

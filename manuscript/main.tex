@@ -87,7 +87,7 @@ baselines.
 Our contributions are: (i) GCP-Mamba, a bidirectional selective SSM over all measured genes in which
 the diffusion of the perturbation over a co-expression graph modulates the step size of every gene
 token; (ii) a controlled benchmark on the five standard GEARS splits of the Norman data and on the
-Adamson et al.\ CRISPRi screen, against five simple baselines, GEARS retrained on the same splits,
+Adamson et al.\ CRISPRi screen, against five simple baselines, GEARS retrained on one of the splits,
 and eight ablations and variants that remove, permute or relocate the graph, destroy the gene
 ordering, remove the recurrence or add an additive prior; and (iii) two evaluation pitfalls, one of
 which invalidated the conclusions of an earlier version of this work.
@@ -186,8 +186,8 @@ kept. (The validation loss typically plateaus for several epochs before a model 
 perturbation; without the 40-epoch minimum, patience-based stopping truncated some runs during
 this plateau.) GCP-Mamba, the permuted-graph, graph-free, Graph-MLP and additive-prior variants were
 trained with three initialisations per split (seeds $s$, $s+1000$, $s+2000$ for split $s$; for the
-permuted graph the permutation is redrawn with the seed); the other ablations with one. All runs used a 4-core CPU; one training run
-took 5--25 minutes.
+permuted graph the permutation is redrawn with the seed); the other ablations with one. All runs used a 4-core CPU; a training run
+took up to 17 minutes (median 7).
 
 \subsection{Ablations and variants}
 All variants share the architecture, perturbation inputs (i)--(ii), optimiser and stopping rule, and
@@ -213,7 +213,11 @@ the sum of its targets' embeddings, taken either from $\mathbf{G}$ (\emph{Linear
 original) or from the control-cell embeddings $\mathbf{e}_g$ that GCP-Mamba receives
 (\emph{Linear (ctrl emb.)}); the ridge penalty was chosen on the validation set from
 $\{10^{-3},\dots,10^{4}\}$. \emph{GEARS} was retrained with the official implementation and default
-hyperparameters (hidden size 64, 20 epochs) on the same splits.
+hyperparameters (hidden size 64) on split 1 of the Norman data. Because GEARS trains on single cells
+and required about 40 minutes per epoch on our CPU, we trained it for 3 epochs instead of 20 (its
+learning rate halves after every epoch, so later epochs change the model little) and skipped its
+per-epoch evaluation of the whole training set, which is used only for logging and exceeded the
+available memory; its validation-based model selection was unchanged.
 
 \subsection{Metrics and statistics}
 Following \citet{roohani2024}, for every test perturbation we computed the mean squared error (MSE)
@@ -254,8 +258,8 @@ splits used then), so 77--84\% of training perturbations (mean 80\%) and 70--94\
 perturbations received an all-zero input, and the 161--183 training perturbations of a split shared
 only 14--19 distinct input vectors (Supplementary Table~S1; \texttt{gcpm/audit\_hvg\_encoding.py}).
 A model cannot distinguish perturbations it receives as identical inputs, so that version could at
-best learn the mean response; its negative conclusion about graph conditioning was an artefact of
-the encoding, not a property of the architecture. The problem is easy to miss: training converges,
+best learn the mean response; its conclusions about graph conditioning therefore said
+nothing about the architecture, in either direction. The problem is easy to miss: training converges,
 loss curves look normal, and the model is competitive with the train-mean baseline. It applies to any
 model whose perturbation input is indexed by the output gene set. Here every target is represented
 by its own token and by an embedding computed from control cells, and we recommend that
@@ -272,7 +276,8 @@ more accurate than the train-mean (0.428), linear (0.349) and no-change (0.561) 
 GEARS reached TBD. %NUM GEARS
 
 For unseen single perturbations, where no additive information exists, all methods except the
-no-change baseline were close together (MSE 0.260--0.281). GCP-Mamba (0.261) was not significantly
+no-change baseline and the linear model with control-cell embeddings were close together (MSE
+0.260--0.281). GCP-Mamba (0.261) was not significantly
 more accurate than the train mean (0.270; Holm-adjusted $P=0.42$), the linear model (0.269;
 $P=1$), the graph-free Mamba (0.265; $P=1$) or the model with a permuted graph (0.265; $P=0.08$).
 In an earlier run with a single initialisation per split, GCP-Mamba had appeared significantly
@@ -337,13 +342,27 @@ additive baseline is 0 by construction). Dots as in Fig.~\ref{fig:bench}.}\label
 
 \subsection{Adamson CRISPRi screen}
 On the Adamson data, which contain only single perturbations, all methods other than the
-no-change baseline had MSEs between 0.161 and 0.171 and Pearson correlations between 0.79 and 0.81,
+no-change baseline had MSEs between 0.161 and 0.171 and Pearson correlations between 0.78 and 0.81,
 differences far smaller than the variation between splits (s.d.\ 0.05--0.07;
 Table~\ref{tab:adamson}). No method was distinguishable from the train mean (0.171), in line with the
-low perturbation-specific variance of this dataset reported by \citet{csendes2025}. TBD GEARS %NUM
+low perturbation-specific variance of this dataset reported by \citet{csendes2025}.
 
 \subsection{Computational cost}
-TBD %NUM scaling
+Figure~\ref{fig:scaling} shows the measured time and peak memory of one training step (two layers,
+batch size 8, forward and backward pass, 4-core CPU) as a function of the number of gene tokens.
+GCP-Mamba grew approximately linearly, from 0.15\,s and 0.23\,GB at 500 genes to 3.1\,s and 1.6\,GB at
+5{,}000 genes (the size of the Norman gene panel) and 16.8\,s and 6.0\,GB at 20{,}000 genes. Dense
+self-attention needed 3.5\,GB at 2{,}000 genes and ran out of the 15\,GB available from 5{,}000 genes.
+A two-layer sparse graph convolution on a 20-nearest-neighbour graph, the kind of computation used by
+GEARS, was, however, 10--40 times faster and used about 40 times less memory than the scan at every
+size. Linear-time SSMs therefore make transcriptome-wide token models feasible where attention is not,
+but they offer no efficiency advantage over sparse graph networks.
+
+\begin{figure}[!t]
+\centerline{\includegraphics[width=\columnwidth]{fig_scaling.pdf}}
+\caption{Measured cost of one training step versus the number of gene tokens $L$ (log--log). Crosses
+mark the last size at which dense self-attention fitted in 15\,GB of memory.}\label{fig:scaling}
+\end{figure}
 
 % ─────────────────────────────────────────────────────────────────────────────
 \section{Discussion}
@@ -384,9 +403,9 @@ differently, and the Replogle et al.\ screens could not be included because most
 not among the measured genes in the GEARS release, which our token-based encoding requires.
 Hyperparameters were chosen on the validation set of the first split only and not tuned per variant;
 a larger search could change absolute errors, although the additive baseline was not approached by
-any variant. We used a single co-expression graph computed from control cells. GEARS was run on CPU
-with its default hyperparameters; its training-set evaluation, used only for logging, was skipped to
-fit in memory. Our PyTorch scan runs on CPU; a fused GPU kernel would change absolute run times but not
+any variant. We used a single co-expression graph computed from control cells. Because of its cost on CPU, GEARS was retrained on
+only one split and for 3 instead of 20 epochs, so its numbers are indicative rather than a full
+benchmark. Our PyTorch scan runs on CPU; a fused GPU kernel would change absolute run times but not
 the linear scaling.
 
 \section*{Acknowledgements}

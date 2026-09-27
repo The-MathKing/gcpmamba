@@ -301,6 +301,33 @@ def table_adamson(path):
     return '\n'.join(lines)
 
 
+def fig_scaling(path_csv='results/scaling.csv', path='manuscript/fig_scaling.pdf'):
+    sc = pd.read_csv(path_csv)
+    style = {'gcp-mamba': ('GCP-Mamba (bidirectional scan)', '#2a78d6'),
+             'attention': ('Dense self-attention', '#1baf7a'),
+             'sparse-gnn': ('Sparse GCN, $k=20$', '#8a8984')}
+    fig, axes = plt.subplots(1, 2, figsize=(3.4, 2.05))
+    for ax, (col, title) in zip(axes, [('seconds', 'Time per step (s)'), ('peak_mb', 'Peak memory (MB)')]):
+        for m, (lab, colr) in style.items():
+            d = sc[sc.model == m]
+            ok = d[d[col].notna()]
+            ax.plot(ok.L, ok[col], '-o', color=colr, lw=1.4, ms=3.2, label=lab)
+            if d[col].isna().any():   # out of memory beyond the last point
+                ax.plot(ok.L.iloc[-1], ok[col].iloc[-1], 'x', color=colr, ms=6, mew=1.5)
+        ax.set_xscale('log'); ax.set_yscale('log')
+        ax.set_title(title, fontsize=6.5, color=INK)
+        ax.set_xlabel('Gene tokens $L$', fontsize=6, color=INK2)
+        ax.tick_params(labelsize=5.5, colors=INK2, length=2)
+        ax.grid(color='#e6e5e0', lw=0.5)
+        for sp in ['top', 'right']:
+            ax.spines[sp].set_visible(False)
+    h, lab = axes[0].get_legend_handles_labels()
+    fig.legend(h, lab, fontsize=5.2, frameon=False, loc='lower center', ncol=3, bbox_to_anchor=(0.5, 0.0))
+    fig.tight_layout(w_pad=0.8, rect=(0, 0.1, 1, 1))
+    fig.savefig(path, bbox_inches='tight')
+    plt.close(fig)
+
+
 def main():
     raw = pd.read_csv(RES)
     df = collapse_reps(raw)
@@ -331,6 +358,8 @@ def main():
     open('manuscript/supp_pearson.tex', 'w').write('\n\n'.join(supp) + '\n')
     fig_benchmark(df[df.model.isin(FIG_MODELS)], 'manuscript/fig_benchmark.pdf')
     fig_gi(df, 'manuscript/fig_gi.pdf')
+    if os.path.exists('results/scaling.csv'):
+        fig_scaling()
     print(summary(df, 'mse_de20').pivot(index='model', columns='subgroup', values='mean').round(4).to_string())
 
 if __name__ == '__main__':
