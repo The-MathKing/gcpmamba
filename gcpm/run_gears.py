@@ -24,8 +24,8 @@ import gears.gears as gears_module
 
 # GEARS.train() evaluates the whole training set after every epoch only to print a log line
 # (model selection uses the validation set). Storing predictions for every training cell
-# exceeds the 15 GB of RAM available here, so the training-set call is redirected to the
-# validation loader; training and validation-based model selection are unchanged.
+# exceeds the 15 GB of RAM available here, so that call is redirected to the validation
+# loader; training and validation-based model selection are unchanged.
 _evaluate = gears_module.evaluate
 _loaders = {}
 
@@ -70,6 +70,10 @@ def main():
         _loaders.update(train=pert.dataloader['train_loader'], val=pert.dataloader['val_loader'])
         model = GEARS(pert, device='cpu')
         model.model_initialize(hidden_size=64)
+        # without a test loader GEARS.train() stops after validation-based model selection; its
+        # built-in test evaluation (logging only) does not fit in memory. Test predictions are made
+        # below with GEARS.predict, which uses the selected model.
+        model.dataloader = {k: v for k, v in model.dataloader.items() if k != 'test_loader'}
         model.train(epochs=args.epochs)
         _, sub = load_split(seed, args.dataset)
         rows, preds = [], {}
