@@ -4,11 +4,11 @@ Additive,2,0.0
 Additive,3,0.0
 Additive,4,0.0
 Additive,5,0.0
-GCP-Mamba,1,-3.6904167581131313
-GCP-Mamba,2,-1.4728057764059534
-GCP-Mamba,3,-1.6238892704275085
-GCP-Mamba,4,-1.4987395636741132
-GCP-Mamba,5,-7.5368718377774755
+GCP-Mamba,1,-3.2694022048072444
+GCP-Mamba,2,-1.0341362681801498
+GCP-Mamba,3,-3.185422946485933
+GCP-Mamba,4,-2.819772863694504
+GCP-Mamba,5,-4.91453628442608
 GCP-Mamba (Delta only),1,-1.7805512742096439
 GCP-Mamba (Delta only),2,-1.5453584631725619
 GCP-Mamba (Delta only),3,-2.413798024510405
@@ -19,26 +19,26 @@ GCP-Mamba (Delta only),5,-4.216281506588509
 "GCP-Mamba (Delta only, w_c~N(0,1))",3,-1.986510012080048
 "GCP-Mamba (Delta only, w_c~N(0,1))",4,-3.0191229485462214
 "GCP-Mamba (Delta only, w_c~N(0,1))",5,-2.672557449268733
-GCP-Mamba (additive prior),1,0.015644000841279815
-GCP-Mamba (additive prior),2,0.03202017990878925
-GCP-Mamba (additive prior),3,-0.010804426353369756
-GCP-Mamba (additive prior),4,0.026193598564247966
-GCP-Mamba (additive prior),5,0.02906861830047658
-GCP-Mamba (perm. graph),1,-1.8058386180703043
-GCP-Mamba (perm. graph),2,-1.6456963043762016
-GCP-Mamba (perm. graph),3,-3.080398696399306
-GCP-Mamba (perm. graph),4,-2.450821834165975
-GCP-Mamba (perm. graph),5,-7.569962254077252
+GCP-Mamba (additive prior),1,0.0036151968525266476
+GCP-Mamba (additive prior),2,0.016945986102385735
+GCP-Mamba (additive prior),3,-0.005085324786787693
+GCP-Mamba (additive prior),4,0.03823305298247992
+GCP-Mamba (additive prior),5,-0.02811185923480175
+GCP-Mamba (perm. graph),1,-2.8677571510501783
+GCP-Mamba (perm. graph),2,-1.1230750094249635
+GCP-Mamba (perm. graph),3,-2.621962805694241
+GCP-Mamba (perm. graph),4,-2.7996561902731574
+GCP-Mamba (perm. graph),5,-4.614651472740261
 GCP-Mamba (random order),1,-2.571027051156145
 GCP-Mamba (random order),2,-1.2007176109319735
 GCP-Mamba (random order),3,-3.811619394691169
 GCP-Mamba (random order),4,-1.9182605358745999
 GCP-Mamba (random order),5,-3.1038283359397
-Graph-MLP (no scan),1,-4.684808022445285
-Graph-MLP (no scan),2,-1.098869695035794
-Graph-MLP (no scan),3,-2.8118487028310883
-Graph-MLP (no scan),4,-2.772277855704378
-Graph-MLP (no scan),5,-4.670524616694468
+Graph-MLP (no scan),1,-3.7087958182117218
+Graph-MLP (no scan),2,-1.3201443969114415
+Graph-MLP (no scan),3,-3.499218792064016
+Graph-MLP (no scan),4,-2.9737355312569944
+Graph-MLP (no scan),5,-3.74783697533985
 Linear (PCA),1,-6.624673375623521
 Linear (PCA),2,-3.0219596324510087
 Linear (PCA),3,-6.457624370892512
@@ -54,11 +54,11 @@ Mamba (additive prior),2,0.06340865396211637
 Mamba (additive prior),3,0.0022771868545004015
 Mamba (additive prior),4,-0.07945460896054679
 Mamba (additive prior),5,0.04194641481903827
-Mamba (no graph),1,-1.9466850826219164
-Mamba (no graph),2,-1.09995890592567
-Mamba (no graph),3,-1.8480995854421427
-Mamba (no graph),4,-2.2314766844638
-Mamba (no graph),5,-2.7279963619999017
+Mamba (no graph),1,-2.836363372962805
+Mamba (no graph),2,-1.7348341554390294
+Mamba (no graph),3,-2.3951549982763534
+Mamba (no graph),4,-2.2581215813416264
+Mamba (no graph),5,-3.3103248867913715
 No change,1,-12.372822740003546
 No change,2,-11.347930239691435
 No change,3,-13.571904759617135

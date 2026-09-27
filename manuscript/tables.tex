@@ -10,7 +10,7 @@ Additive & 0.279\,$\pm$\,0.080 & \textbf{0.503\,$\pm$\,0.303} & \textbf{0.219\,$
 Linear (PCA) & 0.269\,$\pm$\,0.073 & 0.616\,$\pm$\,0.328 & 0.400\,$\pm$\,0.073 & 0.296\,$\pm$\,0.090 & 0.349\,$\pm$\,0.059 \\
 Linear (ctrl emb.) & 0.322\,$\pm$\,0.103 & 0.962\,$\pm$\,0.788 & 0.518\,$\pm$\,0.090 & 0.413\,$\pm$\,0.122 & 0.452\,$\pm$\,0.078 \\
 \midrule
-GCP-Mamba & \textbf{0.261\,$\pm$\,0.083} & 0.565\,$\pm$\,0.279 & 0.340\,$\pm$\,0.158 & 0.204\,$\pm$\,0.138 & 0.302\,$\pm$\,0.125 \\
+GCP-Mamba & \textbf{0.261\,$\pm$\,0.089} & 0.512\,$\pm$\,0.300 & 0.321\,$\pm$\,0.122 & 0.196\,$\pm$\,0.078 & 0.290\,$\pm$\,0.098 \\
 \botrule
 \end{tabular*}}{}
 \end{table*}
@@ -21,17 +21,17 @@ GCP-Mamba & \textbf{0.261\,$\pm$\,0.083} & 0.565\,$\pm$\,0.279 & 0.340\,$\pm$\,0
 \toprule
 Model & Unseen single & Double, 0/2 seen & Double, 1/2 seen & Double, 2/2 seen & All test \\
 \midrule
-GCP-Mamba & 0.261\,$\pm$\,0.083 & 0.565\,$\pm$\,0.279 & 0.340\,$\pm$\,0.158 & 0.204\,$\pm$\,0.138 & 0.302\,$\pm$\,0.125 \\
+GCP-Mamba & 0.261\,$\pm$\,0.089 & 0.512\,$\pm$\,0.300 & 0.321\,$\pm$\,0.122 & 0.196\,$\pm$\,0.078 & 0.290\,$\pm$\,0.098 \\
 \midrule
-GCP-Mamba ($\Delta$ only) & 0.260\,$\pm$\,0.085 & \textbf{0.490\,$\pm$\,0.310} & 0.307\,$\pm$\,0.112 & 0.173\,$\pm$\,0.058 & 0.279\,$\pm$\,0.093 \\
+GCP-Mamba ($\Delta$ only) & \textbf{0.260\,$\pm$\,0.085} & \textbf{0.490\,$\pm$\,0.310} & 0.307\,$\pm$\,0.112 & 0.173\,$\pm$\,0.058 & 0.279\,$\pm$\,0.093 \\
 GCP-Mamba ($\Delta$ only, $\mathbf{w}_c\sim\mathcal{N}(0,1)$) & 0.266\,$\pm$\,0.091 & 0.492\,$\pm$\,0.296 & 0.304\,$\pm$\,0.088 & 0.154\,$\pm$\,0.024 & 0.276\,$\pm$\,0.081 \\
-GCP-Mamba (permuted graph) & 0.259\,$\pm$\,0.083 & 0.517\,$\pm$\,0.313 & 0.332\,$\pm$\,0.155 & 0.211\,$\pm$\,0.132 & 0.296\,$\pm$\,0.121 \\
+GCP-Mamba (permuted graph) & 0.265\,$\pm$\,0.089 & 0.514\,$\pm$\,0.314 & 0.312\,$\pm$\,0.116 & 0.184\,$\pm$\,0.069 & 0.285\,$\pm$\,0.096 \\
 GCP-Mamba (random order) & 0.260\,$\pm$\,0.081 & 0.515\,$\pm$\,0.253 & 0.304\,$\pm$\,0.096 & 0.172\,$\pm$\,0.067 & 0.278\,$\pm$\,0.079 \\
-Mamba (no graph) & 0.266\,$\pm$\,0.093 & 0.498\,$\pm$\,0.279 & 0.292\,$\pm$\,0.096 & 0.142\,$\pm$\,0.034 & 0.269\,$\pm$\,0.086 \\
-Graph-MLP (no scan) & \textbf{0.258\,$\pm$\,0.080} & 0.526\,$\pm$\,0.290 & 0.323\,$\pm$\,0.110 & 0.203\,$\pm$\,0.082 & 0.291\,$\pm$\,0.089 \\
+Mamba (no graph) & 0.265\,$\pm$\,0.090 & 0.513\,$\pm$\,0.297 & 0.301\,$\pm$\,0.101 & 0.169\,$\pm$\,0.040 & 0.278\,$\pm$\,0.088 \\
+Graph-MLP (no scan) & 0.265\,$\pm$\,0.090 & 0.515\,$\pm$\,0.304 & 0.313\,$\pm$\,0.098 & 0.196\,$\pm$\,0.061 & 0.288\,$\pm$\,0.085 \\
 \midrule
-GCP-Mamba (additive prior) & 0.281\,$\pm$\,0.081 & 0.500\,$\pm$\,0.312 & \textbf{0.218\,$\pm$\,0.081} & \textbf{0.047\,$\pm$\,0.006} & \textbf{0.224\,$\pm$\,0.074} \\
-Mamba (additive prior) & 0.278\,$\pm$\,0.087 & 0.506\,$\pm$\,0.316 & 0.219\,$\pm$\,0.079 & 0.048\,$\pm$\,0.005 & 0.224\,$\pm$\,0.075 \\
+GCP-Mamba (additive prior) & 0.281\,$\pm$\,0.080 & 0.504\,$\pm$\,0.313 & \textbf{0.218\,$\pm$\,0.079} & \textbf{0.048\,$\pm$\,0.007} & 0.225\,$\pm$\,0.073 \\
+Mamba (additive prior) & 0.278\,$\pm$\,0.087 & 0.506\,$\pm$\,0.316 & 0.219\,$\pm$\,0.079 & 0.048\,$\pm$\,0.005 & \textbf{0.224\,$\pm$\,0.075} \\
 \botrule
 \end{tabular*}}{}
 \end{table*}
@@ -47,10 +47,34 @@ Train mean & -9.10\,$\pm$\,1.26 & 0.28\,$\pm$\,0.10 \\
 Additive & 0.00\,$\pm$\,0.00 & --- \\
 Linear (PCA) & -5.14\,$\pm$\,1.52 & 0.29\,$\pm$\,0.12 \\
 Linear (ctrl emb.) & -7.47\,$\pm$\,1.66 & 0.29\,$\pm$\,0.10 \\
-GCP-Mamba & -3.16\,$\pm$\,2.62 & 0.36\,$\pm$\,0.06 \\
-Mamba (no graph) & -1.97\,$\pm$\,0.59 & 0.39\,$\pm$\,0.05 \\
-GCP-Mamba (additive prior) & 0.02\,$\pm$\,0.02 & 0.16\,$\pm$\,0.08 \\
+GCP-Mamba & -3.04\,$\pm$\,1.38 & 0.36\,$\pm$\,0.08 \\
+Mamba (no graph) & -2.51\,$\pm$\,0.60 & 0.37\,$\pm$\,0.06 \\
+GCP-Mamba (additive prior) & 0.01\,$\pm$\,0.02 & 0.14\,$\pm$\,0.04 \\
 Mamba (additive prior) & -0.01\,$\pm$\,0.06 & 0.20\,$\pm$\,0.07 \\
+\botrule
+\end{tabular*}}{}
+\end{table}
+
+\begin{table}[!t]
+\processtable{Adamson et al.\ CRISPRi screen, unseen single perturbations (mean\,$\pm$\,s.d.\ over five GEARS simulation splits).\label{tab:adamson}}{
+\begin{tabular*}{\columnwidth}{@{\extracolsep{\fill}}lcc@{}}
+\toprule
+Model & MSE (top-20 DE) $\downarrow$ & Pearson $r$ (top-20 DE) $\uparrow$ \\
+\midrule
+No change & 0.361\,$\pm$\,0.051 & --- \\
+Train mean & 0.171\,$\pm$\,0.065 & 0.79\,$\pm$\,0.10 \\
+Additive & 0.170\,$\pm$\,0.064 & 0.79\,$\pm$\,0.10 \\
+Linear (PCA) & 0.161\,$\pm$\,0.051 & 0.81\,$\pm$\,0.06 \\
+Linear (ctrl emb.) & 0.167\,$\pm$\,0.065 & 0.79\,$\pm$\,0.10 \\
+GCP-Mamba & 0.166\,$\pm$\,0.064 & 0.79\,$\pm$\,0.10 \\
+GCP-Mamba ($\Delta$ only) & 0.164\,$\pm$\,0.060 & 0.79\,$\pm$\,0.10 \\
+GCP-Mamba ($\Delta$ only, $\mathbf{w}_c\sim\mathcal{N}(0,1)$) & 0.164\,$\pm$\,0.060 & 0.79\,$\pm$\,0.10 \\
+GCP-Mamba (permuted graph) & 0.165\,$\pm$\,0.062 & 0.79\,$\pm$\,0.10 \\
+GCP-Mamba (random order) & 0.162\,$\pm$\,0.063 & 0.78\,$\pm$\,0.10 \\
+Mamba (no graph) & 0.162\,$\pm$\,0.062 & 0.79\,$\pm$\,0.10 \\
+Graph-MLP (no scan) & 0.162\,$\pm$\,0.062 & 0.80\,$\pm$\,0.10 \\
+GCP-Mamba (additive prior) & 0.166\,$\pm$\,0.064 & 0.79\,$\pm$\,0.10 \\
+Mamba (additive prior) & 0.162\,$\pm$\,0.062 & 0.79\,$\pm$\,0.10 \\
 \botrule
 \end{tabular*}}{}
 \end{table}

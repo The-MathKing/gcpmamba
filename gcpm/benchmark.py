@@ -230,7 +230,10 @@ def main():
         done = set(zip(prev.seed, prev.rep, prev.model))
 
     def write(rows, path):
-        pd.DataFrame(rows).to_csv(path, mode='a', header=not os.path.exists(path), index=False)
+        df = pd.DataFrame(rows)
+        if os.path.exists(path):   # append in the column order of the existing file
+            df = df.reindex(columns=pd.read_csv(path, nrows=0).columns)
+        df.to_csv(path, mode='a', header=not os.path.exists(path), index=False)
 
     for seed in args.seeds:
         s2c, sub = load_split(seed, args.dataset)
