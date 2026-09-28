@@ -1,0 +1,231 @@
+\documentclass[10.5pt]{article}
+\usepackage[margin=2cm,top=1.8cm,bottom=1.8cm]{geometry}
+\usepackage{lmodern}
+\usepackage[T1]{fontenc}
+\usepackage{amssymb,enumitem,xcolor,tcolorbox}
+\usepackage[hidelinks]{hyperref}
+\usepackage{titlesec}
+\tcbuselibrary{breakable}
+\setlength{\parskip}{4pt}\setlength{\parindent}{0pt}
+\setlist[itemize]{nosep,leftmargin=2.2em,itemsep=5pt,labelsep=0.6em}
+\definecolor{accent}{HTML}{2A78D6}
+\definecolor{note}{HTML}{5B6675}
+\newtcolorbox{callout}[1][]{breakable,colback=accent!6,colframe=accent!70,boxrule=0.5pt,arc=2pt,left=6pt,right=6pt,top=4pt,bottom=4pt,#1}
+\titleformat{\section}{\large\bfseries\color{accent}}{\thesection.}{0.5em}{}
+\titleformat{\subsection}{\normalsize\bfseries}{}{0em}{}
+\titlespacing*{\section}{0pt}{12pt}{4pt}
+\titlespacing*{\subsection}{0pt}{8pt}{2pt}
+% $\star$ = ask this one first; $\square$ = if there is time
+\newcommand{\Q}[1]{\item[$\square$] #1}
+\newcommand{\QS}[1]{\item[\textbf{$\star$}] \textbf{#1}}
+\newcommand{\why}[1]{\par{\small\itshape\color{note}Why: #1}}
+\pagestyle{plain}
+
+\begin{document}
+
+{\LARGE\textbf{Questions for an expert}}\\[2pt]
+{\large Publishing, getting help, and how researchers think}\\[2pt]
+\textit{A checklist for the call with Anthony. Not about the paper's details, but about how research and
+publishing work and how students can get help. $\star$ = ask first; $\square$ = if there is time.}
+
+\begin{callout}[title={\textbf{How to use this list}}]
+A 30-minute call has room for about \textbf{8--10 questions}. Pick the $\star$ ones that matter most to you,
+ask them in that order, and let him talk. Write down his exact words, names, links and numbers. Do not try to
+cover everything: leftover questions become a follow-up email.
+\end{callout}
+
+% ------------------------------------------------------------------
+\section{The twelve to ask if time is short}
+\begin{itemize}
+\QS{Where would you submit this work, and what would make an editor say yes or no?}
+\QS{Would you post a preprint first? What could go wrong later with the journal?}
+\QS{How should two high-school students handle authorship, affiliations and acknowledgements, and should a mentor be listed?}
+\QS{What would a reviewer attack first?}
+\QS{If you were us, what is the smallest extra piece of work that would most improve the project?}
+\QS{How did you find your first mentors, and how should we ask researchers for help without being a burden?}
+\QS{Where can students realistically get computing time, data or analysis help?}
+\QS{What are the norms for disclosing AI tools used for code and writing?}
+\QS{How do you know when a project is finished, and when it needs more work?}
+\QS{How do you handle a negative result, and when do you pivot?}
+\QS{What do you wish you had known at our stage?}
+\QS{Would you look at a revised draft, and who else should we talk to?}
+\end{itemize}
+
+% ------------------------------------------------------------------
+\section{Getting to know him}
+Start here; it builds rapport and tells you which of the later sections he can help with most.
+\begin{itemize}
+\Q{What do you work on, and what is the question you are most excited about right now?}
+\Q{How did you get into research? What did your path look like when you were our age?}
+\Q{What was your first paper like? Was it rejected, and what did you learn from it?}
+\Q{What is the biggest mistake you have made in a project, and how did you find it?}
+\why{ours was a bug in our first version. Hearing his stories makes it easier to talk about yours honestly.}
+\Q{What does a typical week look like: how much reading, experiments, writing, meetings?}
+\end{itemize}
+
+% ------------------------------------------------------------------
+\section{Choosing where to publish}
+\begin{itemize}
+\QS{How do you decide where a paper belongs? What tells you a journal is a good fit?}
+\why{ask what he looks at: recent papers in the journal, article types, the editors, the scope statement.}
+\Q{Journals also offer different article types (full papers, short notes, and so on). How do we know which one fits our work?}
+\Q{Do benchmarking or negative-result papers get published, and where do they do well? Can you point to examples?}
+\Q{Is it better to aim high and risk rejection, or to start with a realistic venue? How many rejections before you change the paper itself?}
+\Q{How much does the journal's name matter for us, compared with getting the work out and read?}
+\Q{How do conferences and workshops compare with journals in computational biology and machine learning, for value and timeline?}
+\Q{Are there venues or programs designed for student research (student journals, symposia, poster sessions, science competitions)? Which are worth the effort and which are not?}
+\Q{How do we spot a predatory or low-quality journal? Are there red flags or lists you trust?}
+\Q{What are the most common reasons a paper is rejected without being sent to reviewers, and how do we avoid them?}
+\Q{What do editors want to see in a cover letter? Is it worth suggesting reviewers, and how do we choose them?}
+\end{itemize}
+
+% ------------------------------------------------------------------
+\section{How the process works}
+\subsection*{Preprints}
+\begin{itemize}
+\QS{Should we post a preprint (for example on bioRxiv) before or after submitting? What are the benefits and risks?}
+\why{you can check the target journal's preprint policy yourselves; ask about his experience, not the rules.}
+\Q{Does a preprint help a student paper get noticed, or can it hurt?}
+\Q{How do you handle comments or criticism that arrive on a preprint?}
+\end{itemize}
+
+\subsection*{Authorship and credit}
+\begin{itemize}
+\QS{How are authorship and author order decided? What counts as a contribution worth authorship, and what belongs in the acknowledgements?}
+\Q{When does a mentor become a co-author, and when is thanks enough? How should students raise this question politely?}
+\Q{Who is the corresponding author, and does it matter? What email and affiliation should students use?}
+\Q{Do reviewers or editors treat papers with student authors differently? Should we say we are students?}
+\end{itemize}
+
+\subsection*{Honesty and disclosure}
+\begin{itemize}
+\QS{What are the norms for disclosing AI tools that helped write code or text? How do you use them yourself, and what wording would you find acceptable?}
+\why{ours received substantial help. Asking openly is the right move, and his answer tells you what wording to use.}
+\QS{We had an earlier, flawed version of this work that was never submitted anywhere. Do we need to mention it? How should a paper describe a bug we found and fixed?}
+\Q{What should be public before submission: code, data, results? What is easy to forget (licence, archived copy, exact versions)?}
+\Q{What would make a reviewer uncomfortable about a project like ours, and how can we address it up front?}
+\end{itemize}
+
+\subsection*{Timelines, reviews and rejection}
+\begin{itemize}
+\Q{How long does the process usually take from submission to a decision? What do you do while waiting? When is it fine to email the editor?}
+\QS{How do you read a harsh review? How should we structure a response letter, and when is it right to push back?}
+\Q{After a rejection, what do you do first? How do you decide between resubmitting elsewhere and rethinking the work?}
+\Q{How do you prioritise when reviewers ask for many extra experiments?}
+\Q{How do students think about publication costs (open-access fees, waivers)? Who pays, and where do we find out before submitting?}
+\end{itemize}
+
+% ------------------------------------------------------------------
+\section{Getting help}
+\subsection*{Mentors and collaborators}
+\begin{itemize}
+\QS{How did you find your mentors? What makes a good one, and how would we find one?}
+\QS{How should students cold-email a professor or postdoc? What makes an email get a reply, what should it include, and how long should we wait before following up?}
+\Q{What can we reasonably ask a busy researcher for: a 15-minute chat, a look at a draft, a code review? What is too much?}
+\Q{Is it appropriate to email the authors of the papers we build on? How would you word it?}
+\Q{Do you know groups working on this kind of problem who might be open to hearing from students?}
+\Q{How do we find a biologist to check our biological interpretation, and a statistician to check our analysis?}
+\end{itemize}
+
+\subsection*{Resources}
+\begin{itemize}
+\QS{Where can students get GPU or cluster time (university programs, cloud credits, paid notebooks, shared clusters)? Are any open to high-school students?}
+\Q{Are there summer research programs, lab-volunteer positions, or online communities (student groups of scientific societies, Discord or Slack groups) worth joining?}
+\Q{Are there other datasets or benchmarks you would trust for this kind of work?}
+\Q{Which tools, courses or books do you recommend for learning the statistics we are missing?}
+\end{itemize}
+
+% ------------------------------------------------------------------
+\section{How researchers think}
+\begin{itemize}
+\QS{How do you decide whether a result is real? What habits stop you from fooling yourself (controls, several random seeds, holding out data)?}
+\QS{How do you know when a project is done and it is time to write, versus needing another experiment?}
+\QS{How do you deal with a negative result, emotionally and professionally? How do you frame it honestly without underselling it?}
+\Q{What makes a good research question for a small team with limited compute?}
+\Q{How do you catch bugs before they cost you months? What checks do you run (simple baselines, tests, sanity checks)?}
+\Q{How do you keep experiments reproducible: notes, version control, saved settings?}
+\Q{How do you balance rigour and speed? When is ``good enough'' good enough?}
+\Q{How much is novelty valued in your field compared with careful replication and evaluation?}
+\Q{How do you read papers efficiently? How many do you read in a week?}
+\Q{What is your writing process: outline first, several drafts, who reads them?}
+\Q{How do you ask for criticism, and how do you decide which criticism to act on?}
+\Q{When a senior person disagrees with you, how do you handle it?}
+\end{itemize}
+
+% ------------------------------------------------------------------
+\section{Education and career}
+\begin{itemize}
+\QS{What do you wish you had known at our stage? What would you do differently in your early career?}
+\Q{If you were a high-school student today who wanted to do computational biology, what would you learn first: maths, programming, biology?}
+\Q{What do you look for in a student researcher? What impresses you, and what puts you off?}
+\Q{What routes lead into research as an undergraduate (majors, programs, labs)? How do students get into a lab?}
+\Q{How should we describe this project honestly on applications? What counts as impressive, and what looks inflated?}
+\Q{For someone our age, does a publication matter, or depth of understanding? What matters more?}
+\Q{How do people move between biology and machine learning? Which side is harder to learn later?}
+\Q{Are there warning signs of bad research culture (hype, pressure to get results) we should avoid?}
+\Q{How do you balance research with school and the rest of life?}
+\end{itemize}
+
+% ------------------------------------------------------------------
+\section{Closing the call}
+\begin{itemize}
+\QS{If you were us and had one month, what would you do?}
+\QS{Would you be willing to look at a revised draft in a few weeks? What format helps you most?}
+\Q{Who else should we talk to, and may we mention your name?}
+\Q{What is one thing we did not ask that we should have?}
+\Q{Would you like updates on how it goes?}
+\end{itemize}
+
+% ------------------------------------------------------------------
+\section{Follow-up probes}
+Short prompts that turn an answer into something you can act on:
+\begin{itemize}
+\item ``Can you say more about that?'' \quad$\cdot$\quad ``What would you do in our shoes?''
+\item ``What would change your mind?'' \quad$\cdot$\quad ``Can you point us to an example?''
+\item ``What is the smallest version of that we could do?'' \quad$\cdot$\quad ``What is the most common mistake here?''
+\item ``Is there something you would \emph{not} do?'' \quad$\cdot$\quad ``Who would know more about this?''
+\end{itemize}
+
+\subsection*{If he says\ldots}
+\begin{tabular}{@{}p{5.2cm}p{10.3cm}@{}}
+\textit{``Submit somewhere smaller first.''} & Which venue, and what does a strong submission there look like? Why is it a better fit?\\[3pt]
+\textit{``Get a mentor to look at it.''} & How would we approach one? What would be a reasonable first request?\\[3pt]
+\textit{``Do more experiments.''} & Which are essential and which are nice to have? What is the minimum to make it solid?\\[3pt]
+\textit{``Negative results are hard to publish.''} & How do we frame it? Where have you seen them do well?\\[3pt]
+\textit{``Post a preprint.''} & When, and what should we check about the journal's policy first?\\[3pt]
+\textit{``AI use is fine if disclosed.''} & Can you show us wording you would find acceptable?\\
+\end{tabular}
+
+% ------------------------------------------------------------------
+\section{Look these up yourselves first}
+Do not spend his time on things you can read. Check these before the call, and use the call for judgement and
+experience:
+\begin{itemize}
+\item[$\square$] The target journal's instructions for authors: article types, length limits, formatting.
+\item[$\square$] The journal's policies on preprints, on AI tools, and on authorship and contributions.
+\item[$\square$] Fees, open-access options, and whether waivers exist.
+\item[$\square$] Recent papers in the journal that resemble yours (evaluation or benchmarking studies).
+\item[$\square$] The data and code requirements: what must be shared and where.
+\item[$\square$] Anthony's own work: a few of his papers, so your questions can refer to them.
+\end{itemize}
+\textit{Policies change and differ between journals; anything he tells you about them is worth confirming on the
+journal's own pages.}
+
+% ------------------------------------------------------------------
+\section{Manners that make experts want to help}
+\begin{itemize}
+\item \textbf{Be specific.} ``Should we post a preprint first?'' gets a better answer than ``any advice?''
+\item \textbf{Don't ask for guarantees.} Not ``will it be accepted?'' but ``what would make it stronger?''
+\item \textbf{Be honest} about what you did, including help from AI tools and the earlier bug. It builds trust.
+\item \textbf{Listen more than you talk.} Take notes; repeat back his two or three concrete suggestions at the end.
+\item \textbf{Respect his time.} Stay within the agreed length; offer to send questions in writing for anything left over.
+\item \textbf{Follow up.} Send a thank-you within a day listing what you will do, then a short progress update in three to four weeks. People help those who show progress.
+\item \textbf{Give back.} Offer to share results, code and anything you learn that might be useful to him.
+\end{itemize}
+
+\vspace{6pt}
+\begin{callout}[title={\textbf{Notes from the call}}]
+\vspace{60pt}
+\end{callout}
+
+\end{document}
