@@ -364,8 +364,8 @@ GCP-Mamba grew approximately linearly, from 0.15\,s and 0.23\,GB at 500 genes to
 5{,}000 genes (the size of the Norman gene panel) and 16.8\,s and 6.0\,GB at 20{,}000 genes. Dense
 self-attention needed 3.5\,GB at 2{,}000 genes and ran out of the 15\,GB available from 5{,}000 genes.
 A two-layer sparse graph convolution on a 20-nearest-neighbour graph, the kind of computation used by
-GEARS, was, however, 10--40 times faster and used about 40 times less memory than the scan at every
-size. Linear-time SSMs therefore make transcriptome-wide token models feasible where attention is not,
+GEARS, was, however, 6--25 times faster and used 25--50 times less memory than the scan (the ratio
+grows with size for time and stays between 25 and 49 for memory). Linear-time SSMs therefore make transcriptome-wide token models feasible where attention is not,
 but they offer no efficiency advantage over sparse graph networks.
 
 \begin{figure}[!t]

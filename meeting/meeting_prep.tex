@@ -368,7 +368,7 @@ and shortened training, so we call it indicative.''
 variance is low in these benchmark datasets.
 \item \textbf{Cost.} The scan grows about linearly: 0.15\,s/0.23\,GB at 500 genes, 3.1\,s/1.6\,GB at 5,000,
 16.8\,s/6.0\,GB at 20,000. Dense attention needed 3.5\,GB at 2,000 genes and ran out of 15\,GB at 5,000. But a
-sparse graph network (GEARS-like) was 10--40$\times$ faster and used $\sim$40$\times$ less memory than the scan.
+sparse graph network (GEARS-like) was 6--25$\times$ faster and used 25--50$\times$ less memory than the scan.
 \emph{Say this yourselves:} SSMs make transcriptome-wide tokens feasible where attention isn't, but they are not
 more efficient than sparse GNNs.
 \end{enumerate}

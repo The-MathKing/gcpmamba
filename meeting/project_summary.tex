@@ -54,7 +54,7 @@ variance beyond additivity.
 permuting the graph does not make predictions worse. GEARS (Gene Ontology graph; one split, reduced
 training) \emph{did} predict unseen genes better (0.214), suggesting the co-expression prior is the weak part.
 \item The scan scales linearly (self-attention runs out of memory at 5,000 genes), but a sparse graph
-network is 10--40$\times$ cheaper.
+network is 6--25$\times$ faster and uses 25--50$\times$ less memory.
 \end{itemize}
 
 \textbf{Contributions beyond the model (evaluation pitfalls).}

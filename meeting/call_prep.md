@@ -45,7 +45,7 @@
 
 ## 4. Questions Anthony may ask, and short answers
 - *"Why Mamba at all?"* Linear scaling lets it read all 5,000 genes; attention runs out of memory at
-  5,000. But we also report honestly that a sparse graph network is 10–40× cheaper.
+  5,000. But we also report honestly that a sparse graph network is 6–25× faster and uses 25–50× less memory.
 - *"What's the step-size conditioning?"* Genes close to the perturbed gene in the co-expression
   graph take bigger update steps in the scan. Ablations show it has no measurable effect.
 - *"How do you know the model isn't just broken?"* It clearly beats the no-change, mean and linear

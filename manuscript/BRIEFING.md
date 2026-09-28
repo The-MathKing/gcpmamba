@@ -33,7 +33,7 @@ Script: `gcpm/audit_hvg_encoding.py` (Supplementary Table S1).
   (0.230 vs 0.213). Suggests Gene Ontology graphs carry information co-expression does not.
 - **Adamson:** all methods within noise of the mean response (low-signal dataset).
 - **Cost:** the scan scales linearly (attention runs out of memory at 5,000 genes), but a sparse
-  graph network is 10–40× cheaper.
+  graph network is 6–25× faster and uses 25–50× less memory.
 
 ## 4. Two general lessons (the paper's main contribution)
 1. Audit the perturbation encoding — count how many targets reach the input.
